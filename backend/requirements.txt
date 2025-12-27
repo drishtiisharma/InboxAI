@@ -1,0 +1,26 @@
+# FastAPI backend
+fastapi
+uvicorn
+python-dotenv
+
+# Google / Gmail API
+google-auth
+google-auth-oauthlib
+google-api-python-client
+
+# PDF reading
+pdfplumber
+pdfminer.six
+
+# Word reading
+python-docx
+
+# Excel reading
+openpyxl
+
+# Image reading (works locally, limited on Render)
+pytesseract
+pillow
+
+# HTTP client (for LLM API replacement later)
+requests
