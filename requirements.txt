@@ -1,11 +1,8 @@
-<<<<<<< HEAD
-=======
 # FastAPI backend
 fastapi
 uvicorn
 python-dotenv
 
->>>>>>> backend
 # Google / Gmail API
 google-auth
 google-auth-oauthlib
@@ -15,22 +12,6 @@ google-api-python-client
 pdfplumber
 pdfminer.six
 
-<<<<<<< HEAD
-# word reading
-python-docx
-
-#excel reading
-openpyxl
-
-#image reading
-pytesseract pillow
-
-# Text-to-speech
-pyttsx3
-pypiwin32; platform_system == "Windows"
-
-# Ollama HTTP API
-=======
 # Word reading
 python-docx
 
@@ -42,5 +23,4 @@ pytesseract
 pillow
 
 # HTTP client (for LLM API replacement later)
->>>>>>> backend
 requests
