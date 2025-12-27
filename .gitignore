@@ -1,6 +1,11 @@
+# secrets
 token.json
 credentials.json
 .env
+
+# python junk
 __pycache__/
 *.pyc
+
+# local stuff
 .vscode/
