@@ -4,6 +4,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from ai_logic.email import summarize_email
 
+from services.gmail_client import get_last_email
+from services.summarizer import summarize_email
+
+
 app = FastAPI(title="InboxAI Backend")
 
 app.add_middleware(
@@ -36,3 +40,17 @@ def summarize_email_endpoint(payload: EmailPayload):
     return {
         "summary": summary
     }
+
+@app.post("/summarize/last-email")
+def summarize_last_email():
+    email = get_last_email()
+
+    if not email or not email["body"]:
+        return {"summary": "No readable email found."}
+
+    summary = summarize_email(
+        body=email["body"],
+        sender=email["sender"]
+    )
+
+    return {"summary": summary}

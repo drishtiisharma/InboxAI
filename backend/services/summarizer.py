@@ -1,48 +1,28 @@
-import os
-from groq import Groq
+import re
+from services.llm_client import call_llm
 
-# Load API key from environment variable
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-if not GROQ_API_KEY:
-    raise RuntimeError("GROQ_API_KEY not found in environment variables")
-
-client = Groq(api_key=GROQ_API_KEY)
+def clean_email(text: str) -> str:
+    text = re.sub(r"\ufeff|\u2007", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"(unsubscribe|click here|tap to apply)", "", text, flags=re.I)
+    return text.strip()
 
 
-def summarize_email(email_body: str, sender: str = "Email") -> str:
-    """
-    Summarizes an email using Groq LLM (FREE tier).
-    """
+def summarize_email(body: str, sender: str) -> str:
+    body = clean_email(body)
 
     prompt = f"""
-You are an AI assistant called InboxAI.
+Explain the email clearly in 2–3 sentences.
 
-Summarize the following email clearly and concisely.
-- Keep it short
-- Use simple language
-- Preserve important action items
-- Do NOT hallucinate
+- Say what the email is about
+- Why it was sent
+- Who sent it
+- What the user should do (if anything)
 
 Sender: {sender}
 
 Email:
-{email_body}
+{body[:1200]}
 """
 
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": "You summarize emails into 2–3 natural sentences with brief context."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=300
-        )
-
-        return response.choices[0].message.content.strip()
-
-    except Exception as e:
-        print("Groq error:", e)
-        return "Failed to summarize email."
+    return call_llm(prompt)
