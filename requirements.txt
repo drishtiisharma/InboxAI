@@ -1,6 +1,7 @@
 # FastAPI backend
 fastapi
 uvicorn
+pydantic
 python-dotenv
 
 # Google / Gmail API
@@ -18,9 +19,12 @@ python-docx
 # Excel reading
 openpyxl
 
-# Image reading (works locally, limited on Render)
+# Image reading
 pytesseract
 pillow
 
-# HTTP client (for LLM API replacement later)
+# HTTP client
 requests
+
+# LLM API client
+groq

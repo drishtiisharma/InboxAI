@@ -1,61 +1,38 @@
-import base64
-from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
+import re
+from services.llm_client import summarize_text
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+# ============================ CLEANING ============================
 
-def get_gmail_service(token_json: dict):
-    """
-    token_json = stored OAuth token dict
-    """
-    creds = Credentials.from_authorized_user_info(token_json, SCOPES)
-    service = build("gmail", "v1", credentials=creds)
-    return service
+def clean_email_for_llm(text: str) -> str:
+    text = re.sub(r"\ufeff|\u2007", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"(tap to apply|click here|unsubscribe)", "", text, flags=re.I)
+    return text.strip()
 
 
-def _decode_body(payload):
-    """
-    Extract + decode email body safely
-    """
-    body = ""
+# ============================ EMAIL SUMMARY ============================
 
-    if "parts" in payload:
-        for part in payload["parts"]:
-            if part.get("mimeType") == "text/plain":
-                data = part["body"].get("data")
-                if data:
-                    body += base64.urlsafe_b64decode(data).decode("utf-8")
-    else:
-        data = payload["body"].get("data")
-        if data:
-            body = base64.urlsafe_b64decode(data).decode("utf-8")
+def summarize_email(body: str, sender: str) -> str:
+    clean_body = clean_email_for_llm(body)
 
-    return body.strip()
+    prompt = f"""
+Explain the email clearly in natural language in 2–3 sentences.
 
+Rules:
+- Do NOT mention formatting, bullet points, or email structure
+- Do NOT quote the email
+- No greetings or opinions
 
-def fetch_latest_emails(service, max_results=5):
-    """
-    Returns list of plain-text email bodies
-    """
-    results = service.users().messages().list(
-        userId="me",
-        maxResults=max_results
-    ).execute()
+Instead:
+- Say what the email is about
+- Why it was sent
+- Who sent it
+- What the user is expected to do (if anything)
 
-    messages = results.get("messages", [])
-    emails = []
+Sender: {sender}
 
-    for msg in messages:
-        msg_data = service.users().messages().get(
-            userId="me",
-            id=msg["id"],
-            format="full"
-        ).execute()
+Email:
+{clean_body[:1200]}
+"""
 
-        payload = msg_data.get("payload", {})
-        body = _decode_body(payload)
-
-        if body:
-            emails.append(body)
-
-    return emails
+    return summarize_text(prompt)

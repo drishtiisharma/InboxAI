@@ -2,8 +2,14 @@
   "manifest_version": 3,
   "name": "InboxAI",
   "version": "0.1",
-  "permissions": ["activeTab"],
-  "host_permissions": ["http://127.0.0.1:8000/*"],
+  "description": "Voice-powered email summarizer using AI",
+  "permissions": [
+    "activeTab",
+    "microphone"
+  ],
+  "host_permissions": [
+    "https://*.onrender.com/*"
+  ],
   "action": {
     "default_popup": "popup.html"
   }
