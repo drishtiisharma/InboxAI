@@ -28,3 +28,6 @@ requests
 
 # LLM API client
 groq
+
+# HTML parsing
+beautifulsoup4
