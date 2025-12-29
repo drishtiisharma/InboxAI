@@ -1,5 +1,4 @@
-from services.llm_client import summarize_text
+from services.summarizer import summarize_email
 
-def summarize_email(body: str, sender: str):
-    context = f"Email from {sender}"
-    return summarize_text(body, context=context)
+def summarize_email_logic(body: str, sender: str):
+    return summarize_email(body, sender)
