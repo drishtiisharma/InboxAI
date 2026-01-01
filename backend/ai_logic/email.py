@@ -1,5 +1,5 @@
 import re
-from ai_logic.llm_client import call_llm
+from services.llm_client import call_llm
 
 
 def clean_sender(sender: str) -> str:
