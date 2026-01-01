@@ -13,13 +13,26 @@ recognition.interimResults = false;
 
 // ===================== SPEAK FUNCTION =====================
 function speak(text) {
-  if (!window.speechSynthesis) return;
+  if (!text || !text.trim()) {
+    console.warn("Nothing to speak");
+    return;
+  }
+
+  // Stop anything already speaking
+  window.speechSynthesis.cancel();
 
   const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
   utterance.rate = 1;
   utterance.pitch = 1;
-  speechSynthesis.cancel();
-  speechSynthesis.speak(utterance);
+
+  // Ensure voices are loaded
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length > 0) {
+    utterance.voice = voices.find(v => v.lang === "en-US") || voices[0];
+  }
+
+  window.speechSynthesis.speak(utterance);
 }
 
 // ===================== GREETING =====================
@@ -47,51 +60,34 @@ document.getElementById("send").onclick = () => {
 };
 
 // ===================== SEND COMMAND TO BACKEND =====================
-async function sendCommand(commandText) {
-  const output = document.getElementById("output");
-  output.innerText = "Thinking...";
-
+async function sendCommand(command) {
   try {
-    const res = await fetch(
-      "https://inboxai-backend-tb5j.onrender.com/command",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ command: commandText }),
-      }
-    );
+    const responseBox = document.getElementById("response");
+    responseBox.textContent = "Thinking...";
 
-    if (!res.ok) {
-      throw new Error(`Backend error: ${res.status}`);
-    }
+    const res = await fetch("/command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command })
+    });
 
     const data = await res.json();
-    console.log("Backend response:", data);
 
-    // ✅ HANDLE UNREAD EMAIL SUMMARY
-    if (data.summaries && data.summaries.length > 0) {
-      let text = `You have ${data.email_count} unread emails.\n\n`;
-
-      data.summaries.forEach((item, index) => {
-        text += `${index + 1}. From ${item.sender}:\n${item.summary}\n\n`;
-      });
-
-      output.innerText = text;
-      speak(`You have ${data.email_count} unread emails. I have summarized them.`);
+    if (!data || !data.response) {
+      responseBox.textContent = "No response from backend.";
       return;
     }
 
-    // fallback
-    const reply = data.message || "I received a response but couldn't understand it.";
-    output.innerText = reply;
-    speak(reply);
+    // 1️⃣ PRINT
+    responseBox.textContent = data.response;
+
+    // 2️⃣ SPEAK (THIS WAS MISSING / MISPLACED BEFORE)
+    speak(data.response);
 
   } catch (err) {
     console.error(err);
-    output.innerText = "Something went wrong while talking to the backend.";
-    speak("Something went wrong while talking to the backend.");
+    document.getElementById("response").textContent =
+      "Something went wrong while talking to the backend.";
   }
 }
 
