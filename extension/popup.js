@@ -12,13 +12,41 @@ recognition.continuous = false;
 recognition.interimResults = false;
 
 // ===================== SPEAK FUNCTION =====================
-//function speak(text) {
-//  const utterance = new SpeechSynthesisUtterance(text);
-//  utterance.lang = "en-US";
-//  window.speechSynthesis.speak(utterance);
-// }
+function speak(text) {
+  if (!window.speechSynthesis) return;
 
-// ===================== SEND COMMAND =====================
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utterance);
+}
+
+// ===================== GREETING =====================
+window.onload = () => {
+  speak("Hi, this is InboxAI. How can I help you?");
+};
+
+// ===================== VOICE RESULT =====================
+recognition.onresult = (event) => {
+  const transcript = event.results[0][0].transcript;
+  document.getElementById("input").value = transcript;
+  sendCommand(transcript);
+};
+
+// ===================== MIC BUTTON =====================
+//document.getElementById("mic").onclick = () => {
+//  recognition.start();
+//};
+
+// ===================== SEND BUTTON =====================
+document.getElementById("send").onclick = () => {
+  const text = document.getElementById("input").value.trim();
+  if (!text) return;
+  sendCommand(text);
+};
+
+// ===================== SEND COMMAND TO BACKEND =====================
 async function sendCommand(commandText) {
   console.log("Sending command:", commandText);
 
@@ -51,18 +79,17 @@ async function sendCommand(commandText) {
   }
 }
 
-// ===================== VOICE INPUT =====================
-recognition.onresult = (event) => {
-  const commandText = event.results[0][0].transcript.toLowerCase();
-  console.log("Heard:", commandText);
-  sendCommand(commandText);
-};
+// ===================== THEME TOGGLE =====================
+const themeToggle = document.getElementById("themeToggle");
+const body = document.body;
 
-recognition.onerror = (event) => {
-  console.error("Speech recognition error:", event.error);
-};
+const currentTheme = localStorage.getItem("theme") || "light";
+if (currentTheme === "dark") {
+  body.classList.add("dark");
+}
 
-// ===================== BUTTON HANDLER =====================
-document.getElementById("micBtn").addEventListener("click", () => {
-  recognition.start();
+themeToggle.addEventListener("click", () => {
+  body.classList.toggle("dark");
+  const theme = body.classList.contains("dark") ? "dark" : "light";
+  localStorage.setItem("theme", theme);
 });
