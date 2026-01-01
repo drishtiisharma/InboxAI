@@ -40,68 +40,40 @@ window.onload = () => {
   speak("Hi, this is InboxAI. How can I help you?");
 };
 
-// ===================== VOICE RESULT =====================
-recognition.onresult = (event) => {
-  const transcript = event.results[0][0].transcript;
-  document.getElementById("input").value = transcript;
-  sendCommand(transcript);
-};
+window.onload = () => {
+  // ===== GREETING =====
+  speak("Hi, this is InboxAI. How can I help you?");
 
-// ===================== MIC BUTTON =====================
-//document.getElementById("mic").onclick = () => {
-//  recognition.start();
-//};
-
-// ===================== SEND BUTTON =====================
-document.getElementById("send").onclick = () => {
-  const text = document.getElementById("input").value.trim();
-  if (!text) return;
-  sendCommand(text);
-};
-
-// ===================== SEND COMMAND TO BACKEND =====================
-async function sendCommand(command) {
-  try {
-    const responseBox = document.getElementById("response");
-    responseBox.textContent = "Thinking...";
-
-    const res = await fetch("/command", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command })
-    });
-
-    const data = await res.json();
-
-    if (!data || !data.response) {
-      responseBox.textContent = "No response from backend.";
-      return;
-    }
-
-    // 1️⃣ PRINT
-    responseBox.textContent = data.response;
-
-    // 2️⃣ SPEAK (THIS WAS MISSING / MISPLACED BEFORE)
-    speak(data.response);
-
-  } catch (err) {
-    console.error(err);
-    document.getElementById("response").textContent =
-      "Something went wrong while talking to the backend.";
+  // ===== SEND BUTTON =====
+  const sendBtn = document.getElementById("send");
+  if (sendBtn) {
+    sendBtn.onclick = () => {
+      const text = document.getElementById("input").value.trim();
+      if (!text) return;
+      sendCommand(text);
+    };
   }
-}
 
-// ===================== THEME TOGGLE =====================
-const themeToggle = document.getElementById("themeToggle");
-const body = document.body;
+  // ===== MIC BUTTON (optional) =====
+  const micBtn = document.getElementById("mic");
+  if (micBtn && recognition) {
+    micBtn.onclick = () => recognition.start();
+  }
 
-const currentTheme = localStorage.getItem("theme") || "light";
-if (currentTheme === "dark") {
-  body.classList.add("dark");
-}
+  // ===== THEME TOGGLE =====
+  const themeToggle = document.getElementById("themeToggle");
+  const body = document.body;
 
-themeToggle.addEventListener("click", () => {
-  body.classList.toggle("dark");
-  const theme = body.classList.contains("dark") ? "dark" : "light";
-  localStorage.setItem("theme", theme);
-});
+  const currentTheme = localStorage.getItem("theme") || "light";
+  if (currentTheme === "dark") {
+    body.classList.add("dark");
+  }
+
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      body.classList.toggle("dark");
+      const theme = body.classList.contains("dark") ? "dark" : "light";
+      localStorage.setItem("theme", theme);
+    });
+  }
+};
