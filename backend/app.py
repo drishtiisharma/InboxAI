@@ -60,12 +60,18 @@ def summarize_unread_emails():
 # ============================ COMMAND HANDLER ============================
 @app.post("/command")
 def handle_command(payload: CommandPayload):
-    command = payload.command.lower()
+    command = payload.command.lower().strip()
 
+    # Normalize common variations
+    command = command.replace("emails", "email")
+    command = command.replace("mails", "mail")
+
+    # -------- UNREAD EMAILS --------
     if "summarize" in command and "unread" in command:
         return summarize_unread_emails()
 
-    if "summarize" in command and "last email" in command:
+    # -------- LAST EMAIL --------
+    if "summarize" in command and "last" in command:
         emails = get_unread_emails(max_results=1)
 
         if not emails:
@@ -82,4 +88,9 @@ def handle_command(payload: CommandPayload):
             "summary": summary
         }
 
-    return {"message": "Command not supported yet"}
+    # -------- FALLBACK --------
+    return {
+        "error": "Command not understood",
+        "received": payload.command,
+        "hint": "Try: 'summarize my unread emails' or 'summarize my last email'"
+    }
