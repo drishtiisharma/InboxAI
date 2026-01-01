@@ -12,11 +12,11 @@ recognition.continuous = false;
 recognition.interimResults = false;
 
 // ===================== SPEAK FUNCTION =====================
-function speak(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
-  window.speechSynthesis.speak(utterance);
-}
+//function speak(text) {
+//  const utterance = new SpeechSynthesisUtterance(text);
+//  utterance.lang = "en-US";
+//  window.speechSynthesis.speak(utterance);
+// }
 
 // ===================== SEND COMMAND =====================
 async function sendCommand(commandText) {
