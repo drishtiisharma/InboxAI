@@ -1,29 +1,56 @@
+import re
+
+def clean_sender(sender: str) -> str:
+    # "Team Unstop <noreply@x.com>" → "Team Unstop"
+    return sender.split("<")[0].strip()
+
+
+def clean_body(text: str) -> str:
+    text = re.sub(r"http\S+", "", text)        # remove links
+    text = re.sub(r"\s+", " ", text)            # normalize spaces
+    text = re.sub(r"[^\x00-\x7F]+", " ", text)  # remove weird unicode
+    return text.strip()
+
+
 def summarize_emails(llm, emails):
     if not emails:
-        return "You have no unread emails."
+        return {
+            "email_count": 0,
+            "summaries": []
+        }
 
-    combined_text = ""
+    summaries = []
 
     for i, email in enumerate(emails, start=1):
-        combined_text += f"""
-Email {i}
-From: {email['from']}
-Subject: {email['subject']}
-Body:
-{email['body']}
-"""
+        sender = clean_sender(email.get("from", "Unknown sender"))
+        body = clean_body(email.get("body", ""))
 
-    prompt = f"""
-Summarize the following unread emails.
+        prompt = f"""
+You are an email assistant.
+
+Summarize the email below in **2–3 short sentences**.
+
 Rules:
-- Be concise
-- Group similar emails
-- Use bullet points
-- Ignore signatures and promotions
+- Do NOT include links
+- Do NOT include email addresses
+- Do NOT copy text from the email
+- Do NOT mention greetings, signatures, or promotions
+- Focus only on the main purpose of the email
+- Use simple, clear language
 
-Emails:
-{combined_text}
+Email:
+{body}
 """
 
-    response = llm.invoke(prompt)
-    return response.content
+        response = llm.invoke(prompt)
+
+        summaries.append({
+            "summary_number": i,
+            "sender": sender,
+            "summary": response.content.strip()
+        })
+
+    return {
+        "email_count": len(summaries),
+        "summaries": summaries
+    }
