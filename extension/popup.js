@@ -56,9 +56,7 @@ async function sendCommand(commandText) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        command: commandText,
-      }),
+      body: JSON.stringify({ command: commandText }),
     });
 
     if (!res.ok) {
@@ -68,16 +66,19 @@ async function sendCommand(commandText) {
     const data = await res.json();
     console.log("Backend response:", data);
 
-    if (data.response) {
-      speak(data.response);
-    } else {
-      speak("I got a response, but it was empty.");
-    }
+    const reply =
+      data.response ||
+      data.message ||
+      data.detail ||
+      "Command not supported yet.";
+
+    speak(reply);
   } catch (err) {
     console.error("Command failed:", err);
     speak("Something went wrong while talking to the backend.");
   }
 }
+
 
 // ===================== THEME TOGGLE =====================
 const themeToggle = document.getElementById("themeToggle");
