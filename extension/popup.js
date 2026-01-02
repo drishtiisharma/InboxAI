@@ -63,7 +63,14 @@ function speak(text) {
 function addMessage(text, type) {
   const div = document.createElement("div");
   div.className = `message ${type}`;
-  div.textContent = text;
+  
+  // Convert \n\n to paragraphs and \n to <br>
+  const htmlContent = text
+    .split('\n\n')
+    .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+  
+  div.innerHTML = htmlContent;
   chatMessages.appendChild(div);
   scrollToBottom();
 
@@ -96,6 +103,7 @@ function scrollToBottom() {
 }
 
 // ===================== SEND COMMAND =====================
+// ===================== SEND COMMAND (FIXED) =====================
 async function sendCommand() {
   const command = input.value.trim();
   if (!command) return;
@@ -118,11 +126,37 @@ async function sendCommand() {
     let reply = "";
 
     if (data.summaries && Array.isArray(data.summaries)) {
-      reply = data.summaries
-        .map(s => `📧 ${s.sender}: ${s.summary}`)
-        .join("\n\n");
+      // Natural conversational format for multiple emails
+      const emailCount = data.summaries.length;
+      const intro = `You have ${emailCount} unread email${emailCount > 1 ? 's' : ''}.\n\n`;
+      
+      const formattedEmails = data.summaries
+        .map((s, index) => {
+          const cleanSender = s.sender.replace(/<[^>]*>/g, '').trim();
+          const cleanSummary = s.summary.replace(/^Summary of email from[^:]*:\s*/i, '');
+          
+          const ordinal = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : `${index + 1}th`;
+          
+          return `Your ${ordinal} unread email is from ${cleanSender}:\n${cleanSummary}`;
+        })
+        .join("\n\n---\n\n");
+      
+      reply = intro + formattedEmails;
+      
     } else if (data.summary) {
-      reply = `📧 ${data.sender}: ${data.summary}`;
+      // Single email format - check if asking for "last" email
+      const cleanSender = data.sender.replace(/<[^>]*>/g, '').trim();
+      const cleanSummary = data.summary.replace(/^Summary of email from[^:]*:\s*/i, '');
+      
+      // Detect if user asked for "last" or "latest" email
+      const isLastEmail = /\b(last|latest|most recent|recent)\b/i.test(command);
+      
+      if (isLastEmail) {
+        reply = `Your last email was from ${cleanSender}:\n\n${cleanSummary}`;
+      } else {
+        reply = `You have 1 unread email.\n\nYour unread email is from ${cleanSender}:\n${cleanSummary}`;
+      }
+      
     } else if (data.error) {
       reply = data.error;
     } else {
@@ -137,7 +171,6 @@ async function sendCommand() {
     addMessage("Backend not responding.", "bot");
   }
 }
-
 // ===================== EVENTS =====================
 sendBtn.addEventListener("click", sendCommand);
 
@@ -171,3 +204,4 @@ document.addEventListener("click", () => {
 
   speak(greetingText);
 }, { once: true });
+
