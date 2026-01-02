@@ -4,25 +4,26 @@
   <title>InboxAI</title>
   <style>
 
-    body {
+  body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 0;
+  margin: 0;
   transition: background-color 0.3s ease;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); /* Always dark gradient */
+  background: #ffffff; /* Match light mode container */
 }
 
 body.dark {
-  background: linear-gradient(135deg, #0a0f1e 0%, #1e293b 100%); /* Darker when dark mode */
+  background: #1e293b; /* Match dark mode container */
 }
 
 .container {
-  background: transparent; /* Remove background */
+  background: #ffffff;
   border-radius: 24px;
-  box-shadow: none; /* Remove shadow */
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
   padding: 35px 30px;
   width: 380px;
   max-width: 100%;
@@ -31,9 +32,10 @@ body.dark {
 }
 
 body.dark .container {
-  background: transparent;
-  box-shadow: none;
+  background: #1e293b;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
 }
+
 
     .message {
   white-space: pre-wrap; /* This makes \n work as line breaks */

@@ -104,6 +104,7 @@ function scrollToBottom() {
 
 // ===================== SEND COMMAND =====================
 // ===================== SEND COMMAND (FIXED) =====================
+// ===================== SEND COMMAND (WITH DEBUG) =====================
 async function sendCommand() {
   const command = input.value.trim();
   if (!command) return;
@@ -120,55 +121,75 @@ async function sendCommand() {
       body: JSON.stringify({ command })
     });
 
+    // Check if response is OK
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+
     const data = await res.json();
+    console.log("Backend response:", data); // DEBUG: Check what we're getting
     removeThinking();
 
     let reply = "";
 
-    if (data.summaries && Array.isArray(data.summaries)) {
-      // Natural conversational format for multiple emails
+    // Handle different response types
+    if (data.type === "conversation") {
+      reply = data.message;
+    } 
+    else if (data.type === "single_email" && data.data) {
+      const cleanSender = data.data.sender.replace(/<[^>]*>/g, '').trim();
+      const cleanSummary = data.data.summary.replace(/^Summary of email from[^:]*:\s*/i, '');
+      reply = `Your last email was from ${cleanSender}:\n\n${cleanSummary}`;
+    } 
+    else if (data.type === "multiple_emails" && data.data && data.data.summaries) {
+      const emailCount = data.data.email_count;
+      const intro = `You have ${emailCount} unread email${emailCount > 1 ? 's' : ''}.\n\n`;
+      
+      const formattedEmails = data.data.summaries.map((s, index) => {
+        const cleanSender = s.sender.replace(/<[^>]*>/g, '').trim();
+        const cleanSummary = s.summary.replace(/^Summary of email from[^:]*:\s*/i, '');
+        const ordinal = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : `${index + 1}th`;
+        return `Your ${ordinal} unread email is from ${cleanSender}:\n${cleanSummary}`;
+      }).join("\n\n---\n\n");
+      
+      reply = intro + formattedEmails;
+    }
+    // FALLBACK: Handle old response format (backward compatibility)
+    else if (data.summaries && Array.isArray(data.summaries)) {
       const emailCount = data.summaries.length;
       const intro = `You have ${emailCount} unread email${emailCount > 1 ? 's' : ''}.\n\n`;
       
-      const formattedEmails = data.summaries
-        .map((s, index) => {
-          const cleanSender = s.sender.replace(/<[^>]*>/g, '').trim();
-          const cleanSummary = s.summary.replace(/^Summary of email from[^:]*:\s*/i, '');
-          
-          const ordinal = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : `${index + 1}th`;
-          
-          return `Your ${ordinal} unread email is from ${cleanSender}:\n${cleanSummary}`;
-        })
-        .join("\n\n---\n\n");
+      const formattedEmails = data.summaries.map((s, index) => {
+        const cleanSender = s.sender.replace(/<[^>]*>/g, '').trim();
+        const cleanSummary = s.summary.replace(/^Summary of email from[^:]*:\s*/i, '');
+        const ordinal = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : `${index + 1}th`;
+        return `Your ${ordinal} unread email is from ${cleanSender}:\n${cleanSummary}`;
+      }).join("\n\n---\n\n");
       
       reply = intro + formattedEmails;
-      
-    } else if (data.summary) {
-      // Single email format - check if asking for "last" email
+    }
+    else if (data.summary) {
       const cleanSender = data.sender.replace(/<[^>]*>/g, '').trim();
       const cleanSummary = data.summary.replace(/^Summary of email from[^:]*:\s*/i, '');
-      
-      // Detect if user asked for "last" or "latest" email
-      const isLastEmail = /\b(last|latest|most recent|recent)\b/i.test(command);
-      
-      if (isLastEmail) {
-        reply = `Your last email was from ${cleanSender}:\n\n${cleanSummary}`;
-      } else {
-        reply = `You have 1 unread email.\n\nYour unread email is from ${cleanSender}:\n${cleanSummary}`;
-      }
-      
-    } else if (data.error) {
+      reply = `Your last email was from ${cleanSender}:\n\n${cleanSummary}`;
+    }
+    else if (data.error) {
       reply = data.error;
-    } else {
-      reply = "No readable response received.";
+    }
+    else if (data.message) {
+      reply = data.message;
+    }
+    else {
+      console.error("Unexpected response format:", data);
+      reply = "Received an unexpected response format.";
     }
 
     addMessage(reply, "bot");
 
   } catch (err) {
     removeThinking();
-    console.error(err);
-    addMessage("Backend not responding.", "bot");
+    console.error("Error details:", err);
+    addMessage(`Error: ${err.message}. Please check console for details.`, "bot");
   }
 }
 // ===================== EVENTS =====================
