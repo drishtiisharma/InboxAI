@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from services.gmail_client import get_unread_emails
 from ai_logic.email import summarize_email_logic
-from ai_logic.llm_client import intelligent_command_handler
+from services.llm_client import intelligent_command_handler
 
 load_dotenv()
 
