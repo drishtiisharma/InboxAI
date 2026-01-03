@@ -3,7 +3,7 @@ from services.llm_client import call_llm
 
 def summarize_email_logic(body: str, sender: str, subject: str = "", attachments: str = ""):
     """
-    Summarize email body and attachments
+    Summarize email body and attachments in a natural, conversational way
     
     Args:
         body: Email body text
@@ -17,47 +17,50 @@ def summarize_email_logic(body: str, sender: str, subject: str = "", attachments
     print(f"Body length: {len(body)} chars")
     print(f"Attachment text length: {len(attachments)} chars")
     
-    # Build the prompt
-    prompt_parts = []
+    # Build the context
+    context_parts = []
     
     # Subject line
     if subject and subject.strip():
-        prompt_parts.append(f"Subject: {subject}")
+        context_parts.append(f"Subject: {subject}")
     
     # Email body
     if body and body.strip():
-        body_preview = body[:1500] if len(body) > 1500 else body
-        prompt_parts.append(f"\nEmail Body:\n{body_preview}")
-        if len(body) > 1500:
-            prompt_parts.append("[Email body truncated]")
+        body_preview = body[:2000] if len(body) > 2000 else body
+        context_parts.append(f"\nEmail Body:\n{body_preview}")
     else:
-        prompt_parts.append("\nEmail Body:\n[No body text or email may be HTML-only]")
+        context_parts.append("\nEmail Body:\n[No body text]")
     
     # Attachments (already processed as text)
     if attachments and attachments.strip():
-        prompt_parts.append(f"\n{attachments}")
+        context_parts.append(f"\n{attachments}")
     
-    # Create final prompt
-    full_prompt = f"""Summarize this email from {sender} in 2-3 natural sentences. 
-Be specific about the content. If there are attachments, briefly mention what they contain.
+    # Create a natural, conversational prompt
+    full_prompt = f"""You're a friendly email assistant. Summarize this email naturally and conversationally, like you're telling a friend about it.
 
-{chr(10).join(prompt_parts)}
+Keep it brief (1-2 sentences max). Be casual and human. Don't include URLs, links, or technical formatting. Just tell me what the email is about in plain language.
 
-Summary:"""
+Email from: {sender}
+
+{chr(10).join(context_parts)}
+
+Quick summary:"""
     
     print(f"Prompt length: {len(full_prompt)} chars")
     
-    # Call LLM with combined content
+    # Call LLM
     try:
         summary = call_llm(full_prompt)
         print(f"Summary generated successfully")
-        return summary
+        return summary.strip()
     except Exception as e:
         print(f"Error calling LLM: {str(e)}")
         
         # Fallback summary
         if body and body.strip():
-            preview = body[:100].strip()
-            return f"Email from {sender} about: {preview}... [Error generating full summary]"
+            preview = body[:80].strip()
+            return f"It's about {preview}..."
+        elif subject:
+            return f"Email about: {subject}"
         else:
-            return f"Email from {sender} with subject '{subject}'. [No body content available]"
+            return "Email received (couldn't read the content)"
