@@ -7,23 +7,28 @@ from googleapiclient.discovery import build
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
+
+CLIENT_SECRET_PATH = "/etc/secrets/client_secret.json"
+TOKEN_PATH = "/etc/secrets/token.json"
+
 def get_gmail_service():
     creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    
+
+    if os.path.exists(TOKEN_PATH):
+        creds = Credentials.from_authorized_user_file(
+            TOKEN_PATH, SCOPES
+        )
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    
-    return build('gmail', 'v1', credentials=creds)
+            # 🚫 DO NOT run OAuth flow on Render
+            raise RuntimeError(
+                "OAuth token missing or invalid. Generate token.json locally."
+            )
 
+    return build('gmail', 'v1', credentials=creds)
 
 def get_unread_emails(max_results=10):
     service = get_gmail_service()
