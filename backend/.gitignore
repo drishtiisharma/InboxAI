@@ -4,5 +4,5 @@ credentials.json
 __pycache__/
 *.pyc
 .env
-client_secret.json
+credentials.json
 oauth_bootstrap.json
