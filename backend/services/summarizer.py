@@ -24,6 +24,20 @@ def summarize_emails(llm, emails):
     for i, email in enumerate(emails, start=1):
         sender = clean_sender(email.get("from", "Unknown sender"))
         body = clean_body(email.get("body", ""))
+        attachments = email.get("attachment_text", "").strip()
+        full_text = body
+        if attachments:
+            full_text += "\n\n" + attachments
+        
+        if not full_text.strip():
+            summaries.append({
+                "summary_number": i,
+                "sender": sender,
+                "summary": "This email contains no readable text in the body or attachments."
+            })
+            continue
+
+
 
         prompt = f"""
 You are an email assistant.
@@ -39,7 +53,8 @@ Rules:
 - Use simple, clear language
 
 Email:
-{body}
+{full_text}
+
 """
 
         response = llm.invoke(prompt)
