@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import traceback
-
+from services.email_categorizer import get_email_category
 from services.gmail_client import get_unread_emails
 from ai_logic.email import summarize_email_logic
 from services.llm_client import intelligent_command_handler
@@ -49,6 +49,12 @@ def get_unread_emails_summary():
             print(f"Has attachments: {bool(email.get('attachment_text'))}")
 
             has_attachments = bool(email.get("attachment_text"))
+
+            category = get_email_category(
+                body=email["body"],
+                sender=email["from"],
+                subject=email.get("subject", "")
+            )
             
             # Provide better context to the AI
             summary = summarize_email_logic(
@@ -59,12 +65,14 @@ def get_unread_emails_summary():
             )
 
             summaries.append({
-                "summary_number": idx,
-                "sender": email["from"],
-                "subject": email.get("subject", "No Subject"),
-                "summary": summary,
-                "has_attachments": has_attachments
-            })
+    "summary_number": idx,
+    "sender": email["from"],
+    "subject": email.get("subject", "No Subject"),
+    "category": category,
+    "summary": summary,
+    "has_attachments": has_attachments
+})
+
 
         return {
             "email_count": len(summaries),
@@ -85,6 +93,13 @@ def get_last_email_summary():
 
         email = emails[0]
 
+        category = get_email_category(
+    body=email["body"],
+    sender=email["from"],
+    subject=email.get("subject", "")
+)
+
+
         summary = summarize_email_logic(
             body=email["body"],
             sender=email["from"],
@@ -92,10 +107,12 @@ def get_last_email_summary():
         )
 
         return {
-            "sender": email["from"],
-            "summary": summary,
-            "has_attachments": bool(email.get("attachment_text"))
-        }
+    "sender": email["from"],
+    "category": category,
+    "summary": summary,
+    "has_attachments": bool(email.get("attachment_text"))
+}
+
 
     except Exception as e:
         print("\n!!! ERROR in get_last_email_summary !!!")
