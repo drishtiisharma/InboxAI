@@ -119,6 +119,27 @@ def get_last_email_summary():
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+def get_unread_email_categories():
+    emails = get_unread_emails()
+    results = []
+
+    for email in emails:
+        category = get_email_category(
+            body=email["body"],
+            sender=email["from"],
+            subject=email.get("subject", "")
+        )
+
+        results.append({
+            "sender": email["from"],
+            "subject": email.get("subject", "No Subject"),
+            "category": category
+        })
+
+    return {
+        "email_count": len(results),
+        "categories": results
+    }
 
 # ============================ COMMAND HANDLER ============================
 @app.post("/command")
@@ -126,7 +147,8 @@ def handle_command(payload: CommandPayload):
     try:
         function_map = {
             "get_unread_emails_summary": get_unread_emails_summary,
-            "get_last_email_summary": get_last_email_summary
+            "get_last_email_summary": get_last_email_summary,
+            "get_unread_email_categories": get_unread_email_categories
         }
 
         return intelligent_command_handler(payload.command, function_map)

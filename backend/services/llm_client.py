@@ -29,7 +29,20 @@ tools = [
                 "required": []
             }
         }
+    },
+    {
+  "type": "function",
+  "function": {
+    "name": "get_unread_email_categories",
+    "description": "Get categories for all unread emails",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
     }
+  }
+}
+
 ]
 
 def call_llm(prompt: str) -> str:
@@ -70,6 +83,8 @@ Examples:
 - "hello" → Greet them back warmly
 - "what's my last email?" → Use get_last_email_summary
 - "show unread emails" → Use get_unread_emails_summary
+- If the user asks about categories, labels, types, or classification of emails,
+use get_unread_email_categories.
 - "summarize my inbox" → Use get_unread_emails_summary"""
         },
         {
