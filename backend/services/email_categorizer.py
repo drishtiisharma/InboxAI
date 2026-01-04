@@ -1,6 +1,6 @@
 from services.llm_client import call_llm
 
-def categorize_email(body: str, sender: str, subject: str = "") -> str:
+def get_email_category(body: str, sender: str, subject: str = "") -> str:
     prompt = f"""
     Categorize the email into ONE category:
     Primary, Promotions, Social, Spam, Updates
