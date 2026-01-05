@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import traceback
-
+import re
 from services.email_categorizer import get_email_category
 from services.gmail_client import get_unread_emails
 from ai_logic.email import summarize_email_logic
@@ -158,10 +158,15 @@ def handle_command(payload: CommandPayload):
 
         # 🔍 RULE-BASED sender lookup (NOT LLM)
         if "email from" in command or "emails from" in command:
-            sender_query = command.split("from")[-1].strip()
+            command.split("from")[-1]
+            sender_query = re.sub(r"[^\w\s@.]", "", sender_query).strip()
 
             if not sender_query:
-                return {"response": "Whose emails should I check?"}
+                return {
+    "type": "conversation",
+    "message": "Whose emails should I check?"
+}
+
 
             result = check_emails_from_sender(sender_query)
 
@@ -171,12 +176,14 @@ def handle_command(payload: CommandPayload):
                 }
 
             return {
-                "response": (
-                    f"You have {result['count']} unread emails from {sender_query}. "
-                    "Do you want me to summarize them?"
-                ),
-                "data": result
-            }
+    "type": "conversation",
+    "message": (
+        f"You have {result['count']} unread emails from {sender_query}. "
+        "Do you want me to summarize them?"
+    ),
+    "data": result
+}
+
 
         # 🧠 LLM-controlled SAFE commands only
         function_map = {
