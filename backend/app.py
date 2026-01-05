@@ -142,12 +142,23 @@ def get_unread_email_categories():
     }
 
 
+def normalize(text: str) -> str:
+    """
+    Normalize text for loose matching:
+    - lowercase
+    - remove all non-alphabet characters
+    """
+    return re.sub(r"[^a-z]", "", text.lower())
+
+
 def check_emails_from_sender(sender_query: str):
     emails = get_unread_emails() or []
 
+    normalized_query = normalize(sender_query)
+
     matched = [
         email for email in emails
-        if sender_query.lower() in email.get("from", "").lower()
+        if normalized_query in normalize(email.get("from", ""))
     ]
 
     if not matched:
@@ -157,7 +168,7 @@ def check_emails_from_sender(sender_query: str):
         }
 
     return {
-        "reply": f"You have {len(matched)} unread emails from {sender_query}.",
+        "reply": f"You have {len(matched)} unread email{'s' if len(matched) > 1 else ''} from {sender_query}.",
         "data": {
             "sender_query": sender_query,
             "count": len(matched),
