@@ -77,32 +77,40 @@ def get_unread_emails_summary():
     if not emails:
         return {
             "reply": "You have no unread emails.",
-            "data": {"email_count": 0, "summaries": []}
+            "data": None
         }
 
     summaries = []
+    spoken_parts = []
 
     for idx, email in enumerate(emails, start=1):
-        body = email.get("body", "")
         sender = email.get("from", "Unknown sender")
-        subject = email.get("subject", "")
+        subject = email.get("subject", "No Subject")
+
+        summary = summarize_email_logic(
+            body=email.get("body", ""),
+            sender=sender,
+            subject=subject,
+            attachments=email.get("attachment_text", "")
+        )
 
         summaries.append({
-            "summary_number": idx,
             "sender": sender,
-            "subject": subject or "No Subject",
-            "category": get_email_category(body, sender, subject),
-            "summary": summarize_email_logic(
-                body=body,
-                sender=sender,
-                subject=subject,
-                attachments=email.get("attachment_text", "")
-            ),
-            "has_attachments": bool(email.get("attachment_text"))
+            "subject": subject,
+            "summary": summary
         })
 
+        spoken_parts.append(
+            f"Email {idx} is from {sender}. {summary}"
+        )
+
+    spoken_reply = (
+        f"You have {len(summaries)} unread emails.\n\n" +
+        "\n\n".join(spoken_parts)
+    )
+
     return {
-        "reply": f"You have {len(summaries)} unread emails.",
+        "reply": spoken_reply,
         "data": {
             "email_count": len(summaries),
             "summaries": summaries
