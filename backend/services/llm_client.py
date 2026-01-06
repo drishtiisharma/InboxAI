@@ -79,7 +79,7 @@ def call_llm(prompt: str) -> str:
     return response.choices[0].message.content.strip()
 
 # ===================== INTELLIGENT HANDLER =====================
-def intelligent_command_handler(user_message: str, function_map: dict) -> dict:
+def intelligent_command_handler(user_message: str, function_map: dict, history: list = None) -> dict:
     """
     Intelligent command handler using function calling
 
@@ -109,12 +109,18 @@ use get_unread_email_categories.
 (e.g., "GitHub", "Google", "LinkedIn", "from X"),
 use check_emails_from_sender with the sender name as parameter.
 - "summarize my inbox" → Use get_unread_emails_summary"""
-        },
-        {
-            "role": "user",
-            "content": user_message
         }
     ]
+
+    # Add conversation history if available
+    if history:
+        messages.extend(history)
+
+    # Add current user message
+    messages.append({
+        "role": "user",
+        "content": user_message
+    })
 
     # -------- First call: decide intent --------
     response = client.chat.completions.create(

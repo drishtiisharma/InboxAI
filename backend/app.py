@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List, Dict, Optional
 from dotenv import load_dotenv
 import traceback
 import re
@@ -26,6 +27,7 @@ app.add_middleware(
 # ============================ MODELS ============================
 class CommandPayload(BaseModel):
     command: str
+    history: Optional[List[Dict[str, str]]] = []
 
 # ============================ ROOT ============================
 @app.get("/")
@@ -201,7 +203,7 @@ def handle_command(payload: CommandPayload):
             return get_unread_emails_summary()
 
 
-        result = intelligent_command_handler(payload.command, function_map)
+        result = intelligent_command_handler(payload.command, function_map, payload.history)
 
         # ✅ HARD RESPONSE NORMALIZATION (frontend expects this)
         if isinstance(result, dict):
