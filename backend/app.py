@@ -202,8 +202,8 @@ def handle_command(payload: CommandPayload):
         if command in ["summarize them", "summarize", "summarise them"]:
             return get_unread_emails_summary()
 
-, payload.history
-        result = intelligent_command_handler(payload.command, function_map)
+
+        result = intelligent_command_handler(payload.command, function_map, payload.history)
 
         # ✅ HARD RESPONSE NORMALIZATION (frontend expects this)
         if isinstance(result, dict):
