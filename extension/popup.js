@@ -4,6 +4,7 @@ const sendBtn = document.getElementById("send");
 const chatMessages = document.getElementById("chatMessages");
 const themeToggle = document.getElementById("themeToggle");
 const body = document.body;
+let conversationHistory = [];
 
 // ===================== THEME =====================
 const savedTheme = localStorage.getItem("theme") || "light";
@@ -107,9 +108,12 @@ async function sendCommand() {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command })
+        body: JSON.stringify({ command, history: conversationHistory })
       }
     );
+
+    // Update history with user's command after sending
+    conversationHistory.push({ role: "user", content: command });
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
@@ -122,6 +126,7 @@ async function sendCommand() {
     // ✅ SINGLE SOURCE OF TRUTH
     if (typeof data.reply === "string") {
       addMessage(data.reply, "bot");
+      conversationHistory.push({ role: "assistant", content: data.reply });
       return;
     }
 
