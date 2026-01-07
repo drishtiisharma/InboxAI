@@ -10,7 +10,9 @@ from ai_logic.readers.attachment_processor import (
     create_attachment_summary
 )
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+
+
 TOKEN_FILE = "token.json"
 CREDENTIALS_FILE = "client_secret.json"
 

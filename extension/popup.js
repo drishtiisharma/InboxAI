@@ -145,56 +145,45 @@ generateDraftsBtn.addEventListener("click", async () => {
     return;
   }
 
-  // Basic email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(recipient)) {
-    alert("Please enter a valid email address");
-    return;
-  }
-
   generateDraftsBtn.disabled = true;
-  generateDraftsBtn.textContent = "Generating...";
   showThinking();
 
   try {
     const response = await fetch(
-  "https://inboxai-backend-tb5j.onrender.com/email/send",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      to: recipient,
-      subject: selectedDraft.subject,
-      body: selectedDraft.body
-    })
-  }
-);
+      "https://inboxai-backend-tb5j.onrender.com/email/draft",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intent: intent,
+          receiver: recipient,
+          tone: "professional",
+          context: ""
+        })
+      }
+    );
 
-if (!response.ok) {
-  throw new Error("Email send failed");
-}
+    if (!response.ok) {
+      throw new Error("Draft generation failed");
+    }
 
-removeThinking();
-addMessage(`✅ Email sent successfully to ${recipient}!`, "bot");
+    const data = await response.json();
+    removeThinking();
 
-    
-    // Parse the response
-    const content = data.content[0].text.replace(/```json|```/g, "").trim();
-    draftSuggestions = JSON.parse(content);
-    
-    // Display draft cards
+    draftSuggestions = data.data.drafts; // ✅ ARRAY
     displayDraftCards();
     showStep(2);
 
-  } catch (error) {
+  } catch (err) {
     removeThinking();
-    console.error("Error generating drafts:", error);
-    alert("Failed to generate draft suggestions. Please try again.");
+    console.error(err);
+    alert("Failed to generate draft suggestions.");
   } finally {
     generateDraftsBtn.disabled = false;
-    generateDraftsBtn.textContent = "Generate Draft Suggestions";
   }
 });
+
+    
 
 // ===================== DISPLAY DRAFT CARDS =====================
 function displayDraftCards() {
@@ -251,59 +240,64 @@ confirmSelectionBtn.addEventListener("click", () => {
 
 // ===================== SEND EMAIL =====================
 sendEmailBtn.addEventListener("click", async () => {
+
+  // 🔒 GUARD FIRST — ALWAYS FIRST
+  if (selectedDraftIndex === null) {
+    alert("Please select a draft first");
+    return;
+  }
+
   const selectedDraft = draftSuggestions[selectedDraftIndex];
   const recipient = recipientEmail.value.trim();
 
-  sendEmailBtn.disabled = true;
-  sendEmailBtn.textContent = "Sending...";
+  if (!recipient) {
+    alert("Please enter recipient email");
+    return;
+  }
+
   showThinking();
 
   try {
+    console.log("Sending email:", {
+      to: recipient,
+      subject: selectedDraft.subject,
+      body: selectedDraft.body
+    });
+
     const response = await fetch(
-  "https://inboxai-backend-tb5j.onrender.com/email/draft",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      intent: intent,
-      receiver: recipient,
-      tone: "professional",
-      context: ""
-    })
-  }
-);
+      "https://inboxai-backend-tb5j.onrender.com/email/send",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: recipient,
+          subject: selectedDraft.subject,
+          body: selectedDraft.body
+        })
+      }
+    );
 
-if (!response.ok) {
-  throw new Error("Draft generation failed");
-}
+    if (!response.ok) {
+      throw new Error("Email send failed");
+    }
 
-const data = await response.json();
-removeThinking();
+    removeThinking();
+    addMessage(`✅ Email sent successfully to ${recipient}`, "bot");
 
-draftSuggestions = data.data.drafts;
-displayDraftCards();
-showStep(2);
-
-    
-    // Success!
-    addMessage(`✅ Email sent successfully to ${recipient}!`, "bot");
-    
-    // Reset form
+    // 🔄 reset UI
     recipientEmail.value = "";
     emailIntent.value = "";
     draftSuggestions = [];
     selectedDraftIndex = null;
     showStep(1);
 
-  } catch (error) {
+  } catch (err) {
     removeThinking();
-    console.error("Error sending email:", error);
-    addMessage("❌ Failed to send email. Please try again.", "bot");
-  } finally {
-    sendEmailBtn.disabled = false;
-    sendEmailBtn.textContent = "✓ Send Email";
+    console.error(err);
+    addMessage("❌ Failed to send email.", "bot");
   }
 });
+
 
 // ===================== CANCEL SEND =====================
 cancelSendBtn.addEventListener("click", () => {
