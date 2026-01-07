@@ -5,6 +5,9 @@ from typing import List, Dict, Optional
 from dotenv import load_dotenv
 import traceback
 import re
+from pydantic import BaseModel
+from services.email_drafter import generate_email_drafts
+from services.gmail_client import send_email, get_gmail_service
 
 from services.email_categorizer import get_email_category
 from services.gmail_client import get_unread_emails
@@ -224,6 +227,17 @@ def handle_command(payload: CommandPayload):
             detail="Command processing failed"
         )
 
+class DraftEmailRequest(BaseModel):
+    intent: str
+    receiver: str
+    tone: str
+    context: Optional[str] = ""
+
+class SendEmailRequest(BaseModel):
+    to: str
+    subject: str
+    body: str
+
 # ============================ DIRECT ROUTES ============================
 @app.post("/summarize/unread")
 def summarize_unread_emails():
@@ -234,4 +248,54 @@ def summarize_unread_emails():
         raise HTTPException(
             status_code=500,
             detail="Failed to summarize unread emails"
+        )
+
+@app.post("/email/draft")
+def draft_email(req: DraftEmailRequest):
+    try:
+        drafts = generate_email_drafts(
+            intent=req.intent,
+            receiver=req.receiver,
+            tone=req.tone,
+            context=req.context
+        )
+
+        return {
+            "reply": "Here are some draft options.",
+            "data": {
+                "drafts": drafts
+            }
+        }
+
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate email drafts"
+        )
+
+@app.post("/email/send")
+def send_email_route(req: SendEmailRequest):
+    try:
+        service = get_gmail_service()
+
+        result = send_email(
+            service=service,
+            to=req.to,
+            subject=req.subject,
+            body=req.body
+        )
+
+        return {
+            "reply": f"Email successfully sent to {req.to}.",
+            "data": {
+                "message_id": result.get("id")
+            }
+        }
+
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send email"
         )

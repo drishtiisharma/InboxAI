@@ -4,7 +4,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-
+from email.message import EmailMessage
 from ai_logic.readers.attachment_processor import (
     process_all_attachments,
     create_attachment_summary
@@ -166,3 +166,28 @@ def get_unread_emails(max_results=10):
         })
 
     return emails
+# ============================ SEND EMAIL ============================
+def send_email(service, to: str, subject: str, body: str):
+    message = EmailMessage()
+    message.set_content(body)
+
+    message["To"] = to
+    message["From"] = "me"
+    message["Subject"] = subject
+
+    encoded_message = base64.urlsafe_b64encode(
+        message.as_bytes()
+    ).decode()
+
+    send_body = {
+        "raw": encoded_message
+    }
+
+    sent_message = (
+        service.users()
+        .messages()
+        .send(userId="me", body=send_body)
+        .execute()
+    )
+
+    return sent_message

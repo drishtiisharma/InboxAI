@@ -406,11 +406,6 @@ function showChatGreeting() {
   greetingSpoken = true;
 }
 
-
-
-
-
-
 // ===================== VIEW TOGGLE (CHAT / DRAFT) =====================
 const chatView = document.getElementById("chatView");
 const draftView = document.getElementById("draftView");
