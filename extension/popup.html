@@ -3,6 +3,273 @@
 <head>
   <title>InboxAI</title>
   <style>
+    /* ===================== DRAFT CARDS ===================== */
+.draft-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.draft-card {
+    padding: 16px;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+body.dark .draft-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+.draft-card:hover {
+    border-color: #06b6d4;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+}
+
+.draft-card.selected {
+    border-color: #06b6d4;
+    background: linear-gradient(135deg, #ecfeff 0%, #f0fdfa 100%);
+    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+body.dark .draft-card.selected {
+    background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
+    border-color: #0e7490;
+}
+
+.draft-card-radio {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #cbd5e1;
+    border-radius: 50%;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+body.dark .draft-card-radio {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+.draft-card.selected .draft-card-radio {
+    border-color: #06b6d4;
+    background: #06b6d4;
+    box-shadow: inset 0 0 0 4px white;
+}
+
+body.dark .draft-card.selected .draft-card-radio {
+    box-shadow: inset 0 0 0 4px #1e293b;
+}
+
+.draft-card-header {
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 8px;
+    padding-right: 30px;
+}
+
+body.dark .draft-card-header {
+    color: #e2e8f0;
+}
+
+.draft-card-subject {
+    font-size: 13px;
+    color: #06b6d4;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.draft-card-body {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+    max-height: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.dark .draft-card-body {
+    color: #94a3b8;
+}
+
+/* ===================== CONFIRMATION BOX ===================== */
+.confirmation-box {
+    padding: 20px;
+    margin: 20px 0;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-radius: 12px;
+    border: 2px solid #fbbf24;
+    animation: fadeIn 0.5s ease;
+}
+
+body.dark .confirmation-box {
+    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+    border-color: #d97706;
+}
+
+.confirmation-box h4 {
+    color: #92400e;
+    font-size: 16px;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+body.dark .confirmation-box h4 {
+    color: #fbbf24;
+}
+
+.confirmation-detail {
+    margin: 8px 0;
+    font-size: 13px;
+    color: #78350f;
+}
+
+body.dark .confirmation-detail {
+    color: #fde68a;
+}
+
+.confirmation-detail strong {
+    font-weight: 600;
+}
+
+.confirmation-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.btn-send {
+    flex: 1;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-send:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.btn-cancel {
+    flex: 1;
+    padding: 12px 20px;
+    background: #e2e8f0;
+    color: #475569;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+body.dark .btn-cancel {
+    background: #334155;
+    color: #cbd5e1;
+}
+
+.btn-cancel:hover {
+    background: #cbd5e1;
+    transform: translateY(-2px);
+}
+
+body.dark .btn-cancel:hover {
+    background: #475569;
+}
+
+/* ===================== INPUT SECTIONS ===================== */
+.input-section {
+    margin: 16px 0;
+}
+
+.input-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+body.dark .input-label {
+    color: #cbd5e1;
+}
+
+.input-field {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #f8fafc;
+    color: #0f172a;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+body.dark .input-field {
+    background: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+.input-field:focus {
+    border-color: #06b6d4;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+}
+
+body.dark .input-field:focus {
+    background: #1e293b;
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
+}
+
+textarea.input-field {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* ===================== STEP INDICATOR ===================== */
+.step-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.step {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    transition: all 0.3s ease;
+}
+
+body.dark .step {
+    background: #475569;
+}
+
+.step.active {
+    width: 24px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+}
 
   body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -13,11 +280,11 @@
   padding: 0;
   margin: 0;
   transition: background-color 0.3s ease;
-  background: #ffffff; /* Match light mode container */
+  background: #ffffff;
 }
 
 body.dark {
-  background: #1e293b; /* Match dark mode container */
+  background: #1e293b;
 }
 
 .container {
@@ -38,10 +305,10 @@ body.dark .container {
 
 
     .message {
-  white-space: pre-wrap; /* This makes \n work as line breaks */
+  white-space: pre-wrap;
 }
 .message p {
-  margin: 0 0 1em 0; /* Space between paragraphs */
+  margin: 0 0 1em 0;
 }
 
 .message p:last-child {
@@ -128,7 +395,6 @@ body.dark .container {
     }
 }
 
-/* Response container styling */
 #response {
     min-height: 100px;
     transition: all 0.3s ease;
@@ -364,6 +630,45 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
       transform: translateY(-1px);
     }
 
+    #generateDrafts, #confirmSelection {
+      width: 100%;
+      margin-top: 18px;
+      padding: 15px 28px;
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+      color: white;
+      border: none;
+      border-radius: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
+      letter-spacing: 0.3px;
+    }
+
+    #generateDrafts:hover, #confirmSelection:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(6, 182, 212, 0.5);
+    }
+
+    #generateDrafts:active, #confirmSelection:active {
+      transform: translateY(-1px);
+    }
+
+    #generateDrafts:disabled, #confirmSelection:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .form-step h4 {
+      color: #475569;
+    }
+
+    body.dark .form-step h4 {
+      color: #cbd5e1;
+    }
+
     #output {
       margin-top: 25px;
       padding: 18px;
@@ -411,11 +716,53 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
 
     <h3>InboxAI</h3>
 
+    <!-- Step Indicator -->
+    <div class="step-indicator" id="stepIndicator">
+      <div class="step active" data-step="1"></div>
+      <div class="step" data-step="2"></div>
+      <div class="step" data-step="3"></div>
+    </div>
+
+    <!-- Step 1: Input Form -->
+    <div id="inputForm" class="form-step">
+      <div class="input-section">
+        <label class="input-label">Recipient Email</label>
+        <input type="email" id="recipientEmail" class="input-field" placeholder="recipient@example.com">
+      </div>
+
+      <div class="input-section">
+        <label class="input-label">Email Intent</label>
+        <textarea id="emailIntent" class="input-field" placeholder="What do you want to say? (e.g., 'Schedule a meeting for next week')"></textarea>
+      </div>
+
+      <button id="generateDrafts">Generate Draft Suggestions</button>
+    </div>
+
+    <!-- Step 2: Draft Selection -->
+    <div id="draftSelection" class="form-step" style="display: none;">
+      <h4 style="text-align: center; color: #475569; margin-bottom: 16px;">Select a Draft</h4>
+      <div class="draft-cards" id="draftCards"></div>
+      <button id="confirmSelection" style="margin-top: 16px;">Continue with Selected Draft</button>
+    </div>
+
+    <!-- Step 3: Confirmation -->
+    <div id="confirmationStep" class="form-step" style="display: none;">
+      <div class="confirmation-box">
+        <h4>📧 Ready to Send</h4>
+        <div class="confirmation-detail"><strong>To:</strong> <span id="confirmRecipient"></span></div>
+        <div class="confirmation-detail"><strong>Subject:</strong> <span id="confirmSubject"></span></div>
+        <div class="confirmation-detail" style="margin-top: 12px;">
+          <strong>Message:</strong><br>
+          <div id="confirmBody" style="margin-top: 8px; white-space: pre-wrap;"></div>
+        </div>
+        <div class="confirmation-buttons">
+          <button class="btn-send" id="sendEmail">✓ Send Email</button>
+          <button class="btn-cancel" id="cancelSend">✗ Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <div class="chat-messages" id="chatMessages"></div>
-
-    <textarea id="input" placeholder="Say Something"></textarea>
-
-    <button id="send">Send Command</button>
 
     <p id="output"></p>
   </div>

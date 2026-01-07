@@ -4,7 +4,26 @@ const sendBtn = document.getElementById("send");
 const chatMessages = document.getElementById("chatMessages");
 const themeToggle = document.getElementById("themeToggle");
 const body = document.body;
+
+// ===================== NEW EMAIL DRAFT ELEMENTS =====================
+const inputForm = document.getElementById("inputForm");
+const draftSelection = document.getElementById("draftSelection");
+const confirmationStep = document.getElementById("confirmationStep");
+const recipientEmail = document.getElementById("recipientEmail");
+const emailIntent = document.getElementById("emailIntent");
+const generateDraftsBtn = document.getElementById("generateDrafts");
+const draftCards = document.getElementById("draftCards");
+const confirmSelectionBtn = document.getElementById("confirmSelection");
+const sendEmailBtn = document.getElementById("sendEmail");
+const cancelSendBtn = document.getElementById("cancelSend");
+const confirmRecipient = document.getElementById("confirmRecipient");
+const confirmSubject = document.getElementById("confirmSubject");
+const confirmBody = document.getElementById("confirmBody");
+const stepIndicator = document.getElementById("stepIndicator");
+
 let conversationHistory = [];
+let draftSuggestions = [];
+let selectedDraftIndex = null;
 
 // ===================== THEME =====================
 const savedTheme = localStorage.getItem("theme") || "light";
@@ -17,6 +36,25 @@ themeToggle.addEventListener("click", () => {
     body.classList.contains("dark") ? "dark" : "light"
   );
 });
+
+// ===================== STEP NAVIGATION =====================
+function updateStepIndicator(activeStep) {
+  const steps = stepIndicator.querySelectorAll('.step');
+  steps.forEach((step, index) => {
+    if (index + 1 <= activeStep) {
+      step.classList.add('active');
+    } else {
+      step.classList.remove('active');
+    }
+  });
+}
+
+function showStep(stepNumber) {
+  inputForm.style.display = stepNumber === 1 ? 'block' : 'none';
+  draftSelection.style.display = stepNumber === 2 ? 'block' : 'none';
+  confirmationStep.style.display = stepNumber === 3 ? 'block' : 'none';
+  updateStepIndicator(stepNumber);
+}
 
 // ===================== SPEECH =====================
 let voices = [];
@@ -93,7 +131,198 @@ function removeThinking() {
   if (t) t.remove();
 }
 
-// ===================== SEND COMMAND =====================
+// ===================== GENERATE DRAFTS =====================
+generateDraftsBtn.addEventListener("click", async () => {
+  const recipient = recipientEmail.value.trim();
+  const intent = emailIntent.value.trim();
+
+  if (!recipient || !intent) {
+    alert("Please fill in both recipient and email intent");
+    return;
+  }
+
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(recipient)) {
+    alert("Please enter a valid email address");
+    return;
+  }
+
+  generateDraftsBtn.disabled = true;
+  generateDraftsBtn.textContent = "Generating...";
+  showThinking();
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [
+          {
+            role: "user",
+            content: `Generate 3 different professional email drafts for the following:
+
+Intent: ${intent}
+Recipient: ${recipient}
+
+Please respond with ONLY a valid JSON array of objects, each with "subject" and "body" fields. The body should be professional and well-formatted. No markdown, no code blocks, just pure JSON.
+
+Example format:
+[
+  {"subject": "Meeting Request", "body": "Dear recipient,\\n\\nI hope this message finds you well..."},
+  {"subject": "Follow-up Discussion", "body": "Hi,\\n\\nI wanted to reach out..."},
+  {"subject": "Quick Question", "body": "Hello,\\n\\nI have a question about..."}
+]`
+          }
+        ]
+      })
+    });
+
+    const data = await response.json();
+    removeThinking();
+    
+    // Parse the response
+    const content = data.content[0].text.replace(/```json|```/g, "").trim();
+    draftSuggestions = JSON.parse(content);
+    
+    // Display draft cards
+    displayDraftCards();
+    showStep(2);
+
+  } catch (error) {
+    removeThinking();
+    console.error("Error generating drafts:", error);
+    alert("Failed to generate draft suggestions. Please try again.");
+  } finally {
+    generateDraftsBtn.disabled = false;
+    generateDraftsBtn.textContent = "Generate Draft Suggestions";
+  }
+});
+
+// ===================== DISPLAY DRAFT CARDS =====================
+function displayDraftCards() {
+  draftCards.innerHTML = "";
+  selectedDraftIndex = null;
+  confirmSelectionBtn.disabled = true;
+
+  draftSuggestions.forEach((draft, index) => {
+    const card = document.createElement("div");
+    card.className = "draft-card";
+    card.innerHTML = `
+      <div class="draft-card-radio"></div>
+      <div class="draft-card-header">Option ${index + 1}</div>
+      <div class="draft-card-subject">Subject: ${draft.subject}</div>
+      <div class="draft-card-body">${draft.body}</div>
+    `;
+
+    card.addEventListener("click", () => selectDraft(index));
+    draftCards.appendChild(card);
+  });
+}
+
+// ===================== SELECT DRAFT =====================
+function selectDraft(index) {
+  // Remove selection from all cards
+  document.querySelectorAll(".draft-card").forEach(card => {
+    card.classList.remove("selected");
+  });
+
+  // Select the clicked card
+  const cards = draftCards.children;
+  cards[index].classList.add("selected");
+  selectedDraftIndex = index;
+  confirmSelectionBtn.disabled = false;
+}
+
+// ===================== CONFIRM SELECTION =====================
+confirmSelectionBtn.addEventListener("click", () => {
+  if (selectedDraftIndex === null) {
+    alert("Please select a draft");
+    return;
+  }
+
+  const selectedDraft = draftSuggestions[selectedDraftIndex];
+  const recipient = recipientEmail.value.trim();
+
+  // Populate confirmation details
+  confirmRecipient.textContent = recipient;
+  confirmSubject.textContent = selectedDraft.subject;
+  confirmBody.textContent = selectedDraft.body;
+
+  showStep(3);
+});
+
+// ===================== SEND EMAIL =====================
+sendEmailBtn.addEventListener("click", async () => {
+  const selectedDraft = draftSuggestions[selectedDraftIndex];
+  const recipient = recipientEmail.value.trim();
+
+  sendEmailBtn.disabled = true;
+  sendEmailBtn.textContent = "Sending...";
+  showThinking();
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [
+          {
+            role: "user",
+            content: `Send an email using the Gmail API with these details:
+To: ${recipient}
+Subject: ${selectedDraft.subject}
+Body: ${selectedDraft.body}
+
+Use the gmail_send_email tool to send this email.`
+          }
+        ],
+        tools: [
+          {
+            type: "gmail_20250201",
+            name: "gmail_send_email"
+          }
+        ]
+      })
+    });
+
+    const data = await response.json();
+    removeThinking();
+    
+    // Success!
+    addMessage(`✅ Email sent successfully to ${recipient}!`, "bot");
+    
+    // Reset form
+    recipientEmail.value = "";
+    emailIntent.value = "";
+    draftSuggestions = [];
+    selectedDraftIndex = null;
+    showStep(1);
+
+  } catch (error) {
+    removeThinking();
+    console.error("Error sending email:", error);
+    addMessage("❌ Failed to send email. Please try again.", "bot");
+  } finally {
+    sendEmailBtn.disabled = false;
+    sendEmailBtn.textContent = "✓ Send Email";
+  }
+});
+
+// ===================== CANCEL SEND =====================
+cancelSendBtn.addEventListener("click", () => {
+  showStep(2);
+});
+
+// ===================== SEND COMMAND (original functionality) =====================
 async function sendCommand() {
   const command = input.value.trim();
   if (!command) return;
@@ -112,7 +341,6 @@ async function sendCommand() {
       }
     );
 
-    // Update history with user's command after sending
     conversationHistory.push({ role: "user", content: command });
 
     if (!res.ok) {
@@ -123,15 +351,13 @@ async function sendCommand() {
     console.log("Backend response:", data);
     removeThinking();
 
-    // ✅ SINGLE SOURCE OF TRUTH
     if (typeof data.reply === "string") {
       addMessage(data.reply, "bot");
       conversationHistory.push({ role: "assistant", content: data.reply });
       return;
     }
 
-    // Safety fallback (should never hit)
-    addMessage("Something went wrong, but I’m still alive 👀", "bot");
+    addMessage("Something went wrong, but I'm still alive 👀", "bot");
 
   } catch (err) {
     removeThinking();
@@ -141,28 +367,32 @@ async function sendCommand() {
 }
 
 // ===================== EVENTS =====================
-sendBtn.addEventListener("click", sendCommand);
+if (sendBtn) {
+  sendBtn.addEventListener("click", sendCommand);
+}
 
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendCommand();
-  }
-});
+if (input) {
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendCommand();
+    }
+  });
+}
 
 // ===================== GREETING =====================
 const greetingText = "Hi, this is InboxAI. How can I help you?";
 
 window.onload = () => {
-  // show greeting text immediately
+  // Show greeting text immediately
   const div = document.createElement("div");
   div.className = "message bot";
   div.textContent = greetingText;
   chatMessages.appendChild(div);
-  scrollToBottom();
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 };
 
-// 🔓 After first user interaction → speak greeting
+// After first user interaction → speak greeting
 document.addEventListener("click", () => {
   if (!speechUnlocked) {
     const unlock = new SpeechSynthesisUtterance(" ");
@@ -173,4 +403,3 @@ document.addEventListener("click", () => {
 
   speak(greetingText);
 }, { once: true });
-
