@@ -157,37 +157,26 @@ generateDraftsBtn.addEventListener("click", async () => {
   showThinking();
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        messages: [
-          {
-            role: "user",
-            content: `Generate 3 different professional email drafts for the following:
+    const response = await fetch(
+  "https://inboxai-backend-tb5j.onrender.com/email/send",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      to: recipient,
+      subject: selectedDraft.subject,
+      body: selectedDraft.body
+    })
+  }
+);
 
-Intent: ${intent}
-Recipient: ${recipient}
+if (!response.ok) {
+  throw new Error("Email send failed");
+}
 
-Please respond with ONLY a valid JSON array of objects, each with "subject" and "body" fields. The body should be professional and well-formatted. No markdown, no code blocks, just pure JSON.
+removeThinking();
+addMessage(`✅ Email sent successfully to ${recipient}!`, "bot");
 
-Example format:
-[
-  {"subject": "Meeting Request", "body": "Dear recipient,\\n\\nI hope this message finds you well..."},
-  {"subject": "Follow-up Discussion", "body": "Hi,\\n\\nI wanted to reach out..."},
-  {"subject": "Quick Question", "body": "Hello,\\n\\nI have a question about..."}
-]`
-          }
-        ]
-      })
-    });
-
-    const data = await response.json();
-    removeThinking();
     
     // Parse the response
     const content = data.content[0].text.replace(/```json|```/g, "").trim();
@@ -270,36 +259,31 @@ sendEmailBtn.addEventListener("click", async () => {
   showThinking();
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        messages: [
-          {
-            role: "user",
-            content: `Send an email using the Gmail API with these details:
-To: ${recipient}
-Subject: ${selectedDraft.subject}
-Body: ${selectedDraft.body}
+    const response = await fetch(
+  "https://inboxai-backend-tb5j.onrender.com/email/draft",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      intent: intent,
+      receiver: recipient,
+      tone: "professional",
+      context: ""
+    })
+  }
+);
 
-Use the gmail_send_email tool to send this email.`
-          }
-        ],
-        tools: [
-          {
-            type: "gmail_20250201",
-            name: "gmail_send_email"
-          }
-        ]
-      })
-    });
+if (!response.ok) {
+  throw new Error("Draft generation failed");
+}
 
-    const data = await response.json();
-    removeThinking();
+const data = await response.json();
+removeThinking();
+
+draftSuggestions = data.data.drafts;
+displayDraftCards();
+showStep(2);
+
     
     // Success!
     addMessage(`✅ Email sent successfully to ${recipient}!`, "bot");
