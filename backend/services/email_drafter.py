@@ -1,22 +1,32 @@
+import json
 from services.llm_client import call_llm
 
 def generate_email_drafts(intent: str, receiver: str, tone: str, context: str = ""):
     prompt = f"""
-You are an email assistant.
+Generate 3 email drafts as VALID JSON.
 
-Generate 3 email drafts.
 Rules:
-- Be concise
-- Match the tone
-- Include a subject line
+- Respond ONLY with JSON
+- No markdown
+- No explanation
+
+Format:
+[
+  {{ "subject": "...", "body": "..." }},
+  {{ "subject": "...", "body": "..." }},
+  {{ "subject": "...", "body": "..." }}
+]
 
 Intent: {intent}
 Receiver: {receiver}
 Tone: {tone}
-Extra context: {context}
-
-Return only numbered drafts.
+Context: {context}
 """
 
     response = call_llm(prompt)
-    return response
+
+    # 🧠 IMPORTANT: parse LLM output safely
+    try:
+        return json.loads(response)
+    except Exception:
+        raise ValueError("LLM returned invalid JSON")

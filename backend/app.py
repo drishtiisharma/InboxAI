@@ -252,27 +252,20 @@ def summarize_unread_emails():
 
 @app.post("/email/draft")
 def draft_email(req: DraftEmailRequest):
-    try:
-        drafts = generate_email_drafts(
-            intent=req.intent,
-            receiver=req.receiver,
-            tone=req.tone,
-            context=req.context
-        )
+    drafts = generate_email_drafts(
+        req.intent,
+        req.receiver,
+        req.tone,
+        req.context
+    )
 
-        return {
-            "reply": "Here are some draft options.",
-            "data": {
-                "drafts": drafts
-            }
+    return {
+        "reply": "Here are some draft options.",
+        "data": {
+            "drafts": drafts
         }
+    }
 
-    except Exception:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to generate email drafts"
-        )
 
 @app.post("/email/send")
 def send_email_route(req: SendEmailRequest):
