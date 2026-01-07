@@ -1,3 +1,7 @@
+const greetingText = "Hi, this is InboxAI. How can I help you?";
+let greetingSpoken = false;
+
+
 // ===================== ELEMENTS =====================
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
@@ -381,18 +385,57 @@ if (input) {
 }
 
 // ===================== GREETING =====================
-const greetingText = "Hi, this is InboxAI. How can I help you?";
 
-window.onload = () => {
-  // Show greeting text immediately
-  const div = document.createElement("div");
-  div.className = "message bot";
-  div.textContent = greetingText;
-  chatMessages.appendChild(div);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-};
+document.addEventListener(
+  "click",
+  () => {
+    if (!speechUnlocked) {
+      const unlock = new SpeechSynthesisUtterance(" ");
+      unlock.volume = 0;
+      speechSynthesis.speak(unlock);
+      speechUnlocked = true;
+    }
+  },
+  { once: true }
+);
 
-// After first user interaction → speak greeting
+function showChatGreeting() {
+  if (greetingSpoken) return;
+
+  addMessage(greetingText, "bot"); // text + speech handled here
+  greetingSpoken = true;
+}
+
+
+
+
+
+
+// ===================== VIEW TOGGLE (CHAT / DRAFT) =====================
+const chatView = document.getElementById("chatView");
+const draftView = document.getElementById("draftView");
+const steps = document.querySelectorAll(".step");
+
+function switchMode(mode) {
+  chatView.style.display = "none";
+  draftView.style.display = "none";
+
+  steps.forEach(step => step.classList.remove("active"));
+
+  if (mode === "chat") {
+    chatView.style.display = "block";
+    steps[0].classList.add("active");
+
+    showChatGreeting(); // 👈 THIS IS THE KEY
+  }
+
+  if (mode === "draft") {
+    draftView.style.display = "block";
+    steps[1].classList.add("active");
+  }
+}
+
+// 🔓 After first user interaction → speak greeting
 document.addEventListener("click", () => {
   if (!speechUnlocked) {
     const unlock = new SpeechSynthesisUtterance(" ");
@@ -403,3 +446,14 @@ document.addEventListener("click", () => {
 
   speak(greetingText);
 }, { once: true });
+// Dot clicks
+steps.forEach(step => {
+  step.addEventListener("click", () => {
+    const mode = step.dataset.mode;
+    switchMode(mode);
+  });
+});
+
+// Default view
+switchMode("chat");
+

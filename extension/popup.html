@@ -717,12 +717,12 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
     <h3>InboxAI</h3>
 
     <!-- Step Indicator -->
-    <div class="step-indicator" id="stepIndicator">
-      <div class="step active" data-step="1"></div>
-      <div class="step" data-step="2"></div>
-      <div class="step" data-step="3"></div>
-    </div>
+    <div class="step-indicator" id="modeIndicator">
+  <div class="step active" data-mode="chat"></div>
+  <div class="step" data-mode="draft"></div>
+</div>
 
+<div id="draftView" style="display:none;">
     <!-- Step 1: Input Form -->
     <div id="inputForm" class="form-step">
       <div class="input-section">
@@ -761,8 +761,13 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
         </div>
       </div>
     </div>
+</div>
+    <div id="chatView">
+  <div class="chat-messages" id="chatMessages"></div>
 
-    <div class="chat-messages" id="chatMessages"></div>
+  <textarea id="input" placeholder="Say Something"></textarea>
+  <button id="send">Send Command</button>
+</div>
 
     <p id="output"></p>
   </div>
