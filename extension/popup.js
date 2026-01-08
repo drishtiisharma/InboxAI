@@ -1,6 +1,7 @@
 const greetingText = "Hi, this is InboxAI. How can I help you?";
 let greetingSpoken = false;
 
+
 function showDraftThinking() {
   sendEmailBtn.disabled = true;
   sendEmailBtn.textContent = "Sending...";
@@ -51,7 +52,18 @@ themeToggle.addEventListener("click", () => {
 
 // ===================== STEP NAVIGATION =====================
 function updateStepIndicator(activeStep) {
+  // Check if stepIndicator exists
+  if (!stepIndicator) {
+    console.warn("Step indicator element not found");
+    return;
+  }
+  
   const steps = stepIndicator.querySelectorAll('.step');
+  if (!steps || steps.length === 0) {
+    console.warn("No step elements found");
+    return;
+  }
+  
   steps.forEach((step, index) => {
     if (index + 1 <= activeStep) {
       step.classList.add('active');
@@ -62,12 +74,21 @@ function updateStepIndicator(activeStep) {
 }
 
 function showStep(stepNumber) {
-  inputForm.style.display = stepNumber === 1 ? 'block' : 'none';
-  draftSelection.style.display = stepNumber === 2 ? 'block' : 'none';
-  confirmationStep.style.display = stepNumber === 3 ? 'block' : 'none';
+  // Check if elements exist before manipulating them
+  if (inputForm) {
+    inputForm.style.display = stepNumber === 1 ? 'block' : 'none';
+  }
+  
+  if (draftSelection) {
+    draftSelection.style.display = stepNumber === 2 ? 'block' : 'none';
+  }
+  
+  if (confirmationStep) {
+    confirmationStep.style.display = stepNumber === 3 ? 'block' : 'none';
+  }
+  
   updateStepIndicator(stepNumber);
 }
-
 // ===================== SPEECH =====================
 let voices = [];
 let speechUnlocked = false;
@@ -145,7 +166,7 @@ function removeThinking() {
 
 // ===================== GENERATE DRAFTS =====================
 generateDraftsBtn.addEventListener("click", async () => {
-  console.log("🔥 GENERATE BUTTON CLICKED");
+  console.log("GENERATE BUTTON CLICKED");
   const recipient = recipientEmail.value.trim();
   const intent = emailIntent.value.trim();
 
@@ -157,7 +178,6 @@ generateDraftsBtn.addEventListener("click", async () => {
   // Show loading state
   generateDraftsBtn.disabled = true;
   generateDraftsBtn.textContent = "Generating...";
-  console.log("CLICKED generate drafts");
 
   try {
     const response = await fetch(
@@ -174,53 +194,31 @@ generateDraftsBtn.addEventListener("click", async () => {
       }
     );
 
-    console.log("Response status:", response.status);
-    
-    // Try to parse the response regardless of status
-    const data = await response.json();
-    console.log("Full response data:", JSON.stringify(data, null, 2));
-
     if (!response.ok) {
-      console.error("API Error Response:", data);
-      throw new Error(`Draft generation failed: ${response.status} - ${data.message || 'Unknown error'}`);
+      throw new Error(`Draft generation failed: ${response.status}`);
     }
 
-    // Log the structure to debug
-    console.log("Data structure:", {
-      hasData: !!data.data,
-      dataKeys: data.data ? Object.keys(data.data) : 'no data',
-      hasDrafts: data.data && data.data.drafts,
-      draftsType: data.data && data.data.drafts ? typeof data.data.drafts : 'no drafts',
-      isArray: data.data && data.data.drafts && Array.isArray(data.data.drafts),
-      draftsLength: data.data && data.data.drafts && data.data.drafts.length
-    });
+    const data = await response.json();
+    console.log("Draft response:", data);
 
     // Check if drafts exist in the expected structure
     if (!data.data || !data.data.drafts || !Array.isArray(data.data.drafts)) {
-      console.error("Unexpected data structure:", data);
-      throw new Error("Invalid response structure - no drafts array found");
-    }
-
-    // Check if drafts array is empty
-    if (data.data.drafts.length === 0) {
-      throw new Error("No drafts were generated");
+      throw new Error("Invalid response structure");
     }
 
     draftSuggestions = data.data.drafts;
-    console.log("Drafts received:", draftSuggestions.length, "items");
     displayDraftCards();
-    showStep(2);
+    showStep(2); // Just call this normally
 
   } catch (err) {
     console.error("Error generating drafts:", err);
-    alert(`Failed to generate draft suggestions: ${err.message}`);
+    alert("Failed to generate draft suggestions. Please try again.");
   } finally {
     // Always reset button state
     generateDraftsBtn.disabled = false;
     generateDraftsBtn.textContent = "Generate Drafts";
   }
 });
-
 // ===================== DISPLAY DRAFT CARDS =====================
 function displayDraftCards() {
   draftCards.innerHTML = "";
