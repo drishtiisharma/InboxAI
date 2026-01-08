@@ -3,6 +3,100 @@
 <head>
   <title>InboxAI</title>
   <style>
+    /* ===================== MEETING STYLES ===================== */
+.meeting-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.meeting-command-section,
+.meeting-form-section {
+  flex: 1;
+}
+
+.meeting-link-box {
+  padding: 16px;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border-radius: 12px;
+  border: 2px solid #10b981;
+}
+
+body.dark .meeting-link-box {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  border-color: #059669;
+}
+
+.meeting-link {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #065f46;
+  word-break: break-all;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+}
+
+body.dark .meeting-link {
+  color: #d1fae5;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Copy button specific styles - Add this if not already in your existing CSS */
+.btn-copy {
+  padding: 6px 12px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-copy:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+/* Make step indicator steps clickable (for the 3-step mode switching) */
+.step {
+  cursor: pointer; /* Add this if not already present */
+}
+
+/* Meeting-specific button styles (if needed separately) */
+#generateMeeting, #parseMeetingCommand {
+  width: 100%;
+  margin-top: 18px;
+  padding: 15px 28px;
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
+  letter-spacing: 0.3px;
+}
+
+#generateMeeting:hover, #parseMeetingCommand:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(6, 182, 212, 0.5);
+}
+
+#generateMeeting:active, #parseMeetingCommand:active {
+  transform: translateY(-1px);
+}
+
+#generateMeeting:disabled, #parseMeetingCommand:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
     /* ===================== DRAFT CARDS ===================== */
 .draft-cards {
     display: flex;
@@ -720,6 +814,7 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
     <div class="step-indicator" id="modeIndicator">
   <div class="step active" data-mode="chat"></div>
   <div class="step" data-mode="draft"></div>
+   <div class="step" data-mode="meeting"></div>
 </div>
 
 <div id="draftView" style="display:none;">
@@ -762,15 +857,99 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
       </div>
     </div>
 </div>
-    <div id="chatView">
+<div id="meetingView" style="display:none;">
+  <div class="meeting-layout">
+    <!-- Command Input -->
+    <div class="meeting-command-section">
+      <h4 style="text-align: center; margin-bottom: 16px;">Quick Schedule</h4>
+      <div class="input-section">
+        <label class="input-label">Natural Command</label>
+        <textarea id="meetingCommand" class="input-field" placeholder="e.g., 'Schedule a meeting with john@example.com tomorrow at 3pm'"></textarea>
+      </div>
+      <button id="parseMeetingCommand">Parse & Fill Form</button>
+      
+      <div style="margin: 20px 0; text-align: center; color: #94a3b8; font-size: 12px;">OR</div>
+    </div>
+
+    <!-- Form Fields -->
+    <div class="meeting-form-section">
+      <h4 style="text-align: center; margin-bottom: 16px;">Meeting Details</h4>
+      
+      <div class="input-section">
+        <label class="input-label">Recipient Email(s)</label>
+        <input type="text" id="meetingRecipients" class="input-field" placeholder="email@example.com, another@example.com">
+      </div>
+
+      <div class="input-section">
+        <label class="input-label">Date</label>
+        <input type="date" id="meetingDate" class="input-field">
+      </div>
+
+      <div class="input-section">
+        <label class="input-label">Time</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="time" id="meetingTime" class="input-field" style="flex: 1;">
+          <select id="meetingTimeType" class="input-field" style="flex: 0 0 auto; width: 120px;">
+            <option value="custom">Custom</option>
+            <option value="instant">Now</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-section">
+        <label class="input-label">Duration (minutes)</label>
+        <input type="number" id="meetingDuration" class="input-field" value="30" min="15" step="15">
+      </div>
+
+      <div class="input-section">
+        <label class="input-label">Meeting Title</label>
+        <input type="text" id="meetingTitle" class="input-field" placeholder="Quick sync">
+      </div>
+
+      <div class="input-section">
+        <label class="input-label">Agenda (optional)</label>
+        <textarea id="meetingAgenda" class="input-field" placeholder="What we'll discuss..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generated Meeting Link Display -->
+  <div id="meetingLinkDisplay" style="display: none; margin-top: 20px;">
+    <div class="meeting-link-box">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <h4 style="color: #10b981; margin: 0;">Meeting Link Generated</h4>
+        <button id="copyMeetingLink" class="btn-copy">Copy Link</button>
+      </div>
+      <div id="generatedMeetingLink" class="meeting-link"></div>
+    </div>
+  </div>
+
+  <button id="generateMeeting">Generate Meeting & Send Invites</button>
+
+  <!-- Meeting Confirmation -->
+  <div id="meetingConfirmation" style="display: none; margin-top: 20px;">
+    <div class="confirmation-box">
+      <h4>Meeting Ready to Send</h4>
+      <div class="confirmation-detail"><strong>To:</strong> <span id="confirmMeetingRecipients"></span></div>
+      <div class="confirmation-detail"><strong>When:</strong> <span id="confirmMeetingTime"></span></div>
+      <div class="confirmation-detail"><strong>Duration:</strong> <span id="confirmMeetingDuration"></span></div>
+      <div class="confirmation-detail"><strong>Link:</strong> <span id="confirmMeetingLink"></span></div>
+      <div class="confirmation-buttons">
+        <button class="btn-send" id="sendMeetingInvite">Send Invites</button>
+        <button class="btn-cancel" id="cancelMeeting">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+  <div id="chatView">
   <div class="chat-messages" id="chatMessages"></div>
 
   <textarea id="input" placeholder="Say Something"></textarea>
   <button id="send">Send Command</button>
 </div>
 
-    <p id="output"></p>
-  </div>
+  <p id="output"></p>
+</div>
 
 <script src="popup.js"></script>
 

@@ -1,16 +1,6 @@
 const greetingText = "Hi, this is InboxAI. How can I help you?";
 let greetingSpoken = false;
 
-
-function showDraftThinking() {
-  sendEmailBtn.disabled = true;
-  sendEmailBtn.textContent = "Sending...";
-}
-
-function removeDraftThinking() {
-  sendEmailBtn.disabled = false;
-  sendEmailBtn.textContent = "Send Email";
-}
 // ===================== ELEMENTS =====================
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
@@ -18,7 +8,7 @@ const chatMessages = document.getElementById("chatMessages");
 const themeToggle = document.getElementById("themeToggle");
 const body = document.body;
 
-// ===================== NEW EMAIL DRAFT ELEMENTS =====================
+// ===================== EMAIL DRAFT ELEMENTS =====================
 const inputForm = document.getElementById("inputForm");
 const draftSelection = document.getElementById("draftSelection");
 const confirmationStep = document.getElementById("confirmationStep");
@@ -32,11 +22,26 @@ const cancelSendBtn = document.getElementById("cancelSend");
 const confirmRecipient = document.getElementById("confirmRecipient");
 const confirmSubject = document.getElementById("confirmSubject");
 const confirmBody = document.getElementById("confirmBody");
-const stepIndicator = document.getElementById("stepIndicator");
+
+// ===================== MEETING ELEMENTS =====================
+const meetingView = document.getElementById("meetingView");
+
+const generateMeetingBtn = document.getElementById("generateMeeting");
+
+const cancelMeetingBtn = document.getElementById("cancelMeeting");
+const copyMeetingLinkBtn = document.getElementById("copyMeetingLink");
+
+// ===================== VIEW ELEMENTS =====================
+const chatView = document.getElementById("chatView");
+const draftView = document.getElementById("draftView");
+const modeSteps = document.querySelectorAll(".step"); // Renamed to avoid conflict
 
 let conversationHistory = [];
 let draftSuggestions = [];
 let selectedDraftIndex = null;
+let generatedMeetingData = null;
+let voices = [];
+let speechUnlocked = false;
 
 // ===================== THEME =====================
 const savedTheme = localStorage.getItem("theme") || "light";
@@ -50,49 +55,7 @@ themeToggle.addEventListener("click", () => {
   );
 });
 
-// ===================== STEP NAVIGATION =====================
-function updateStepIndicator(activeStep) {
-  // Check if stepIndicator exists
-  if (!stepIndicator) {
-    console.warn("Step indicator element not found");
-    return;
-  }
-  
-  const steps = stepIndicator.querySelectorAll('.step');
-  if (!steps || steps.length === 0) {
-    console.warn("No step elements found");
-    return;
-  }
-  
-  steps.forEach((step, index) => {
-    if (index + 1 <= activeStep) {
-      step.classList.add('active');
-    } else {
-      step.classList.remove('active');
-    }
-  });
-}
-
-function showStep(stepNumber) {
-  // Check if elements exist before manipulating them
-  if (inputForm) {
-    inputForm.style.display = stepNumber === 1 ? 'block' : 'none';
-  }
-  
-  if (draftSelection) {
-    draftSelection.style.display = stepNumber === 2 ? 'block' : 'none';
-  }
-  
-  if (confirmationStep) {
-    confirmationStep.style.display = stepNumber === 3 ? 'block' : 'none';
-  }
-  
-  updateStepIndicator(stepNumber);
-}
 // ===================== SPEECH =====================
-let voices = [];
-let speechUnlocked = false;
-
 function loadVoices() {
   voices = window.speechSynthesis.getVoices();
 }
@@ -164,9 +127,65 @@ function removeThinking() {
   if (t) t.remove();
 }
 
+// ===================== MODE SWITCHING =====================
+function switchMode(mode) {
+  // Hide all views
+  chatView.style.display = "none";
+  draftView.style.display = "none";
+  meetingView.style.display = "none";
+
+  // Update step indicators
+  modeSteps.forEach(step => {
+    step.classList.remove("active");
+    if (step.dataset.mode === mode) {
+      step.classList.add("active");
+    }
+  });
+
+  // Show selected view
+  if (mode === "chat") {
+    chatView.style.display = "block";
+    showChatGreeting();
+  } else if (mode === "draft") {
+    draftView.style.display = "block";
+    showStep(1); // Start at step 1 for draft mode
+  } else if (mode === "meeting") {
+    meetingView.style.display = "block";
+    resetMeetingMode(); // Reset meeting form when entering
+  }
+}
+
+function showChatGreeting() {
+  if (greetingSpoken) return;
+  addMessage(greetingText, "bot");
+  greetingSpoken = true;
+}
+
+// Mode step click handlers
+modeSteps.forEach(step => {
+  step.addEventListener("click", () => {
+    const mode = step.dataset.mode;
+    switchMode(mode);
+  });
+});
+
+// ===================== DRAFT STEP NAVIGATION =====================
+function showStep(stepNumber) {
+  if (inputForm) {
+    inputForm.style.display = stepNumber === 1 ? "block" : "none";
+  }
+  
+  if (draftSelection) {
+    draftSelection.style.display = stepNumber === 2 ? "block" : "none";
+  }
+  
+  if (confirmationStep) {
+    confirmationStep.style.display = stepNumber === 3 ? "block" : "none";
+  }
+}
+
 // ===================== GENERATE DRAFTS =====================
 generateDraftsBtn.addEventListener("click", async () => {
-  console.log("GENERATE BUTTON CLICKED");
   const recipient = recipientEmail.value.trim();
   const intent = emailIntent.value.trim();
 
@@ -175,7 +194,6 @@ generateDraftsBtn.addEventListener("click", async () => {
     return;
   }
 
-  // Show loading state
   generateDraftsBtn.disabled = true;
   generateDraftsBtn.textContent = "Generating...";
 
@@ -199,26 +217,24 @@ generateDraftsBtn.addEventListener("click", async () => {
     }
 
     const data = await response.json();
-    console.log("Draft response:", data);
-
-    // Check if drafts exist in the expected structure
+    
     if (!data.data || !data.data.drafts || !Array.isArray(data.data.drafts)) {
       throw new Error("Invalid response structure");
     }
 
     draftSuggestions = data.data.drafts;
     displayDraftCards();
-    showStep(2); // Just call this normally
+    showStep(2);
 
   } catch (err) {
     console.error("Error generating drafts:", err);
     alert("Failed to generate draft suggestions. Please try again.");
   } finally {
-    // Always reset button state
     generateDraftsBtn.disabled = false;
-    generateDraftsBtn.textContent = "Generate Drafts";
+    generateDraftsBtn.textContent = "Generate Draft Suggestions";
   }
 });
+
 // ===================== DISPLAY DRAFT CARDS =====================
 function displayDraftCards() {
   draftCards.innerHTML = "";
@@ -242,12 +258,10 @@ function displayDraftCards() {
 
 // ===================== SELECT DRAFT =====================
 function selectDraft(index) {
-  // Remove selection from all cards
   document.querySelectorAll(".draft-card").forEach(card => {
     card.classList.remove("selected");
   });
 
-  // Select the clicked card
   const cards = draftCards.children;
   cards[index].classList.add("selected");
   selectedDraftIndex = index;
@@ -264,7 +278,6 @@ confirmSelectionBtn.addEventListener("click", () => {
   const selectedDraft = draftSuggestions[selectedDraftIndex];
   const recipient = recipientEmail.value.trim();
 
-  // Populate confirmation details
   confirmRecipient.textContent = recipient;
   confirmSubject.textContent = selectedDraft.subject;
   confirmBody.textContent = selectedDraft.body;
@@ -274,8 +287,6 @@ confirmSelectionBtn.addEventListener("click", () => {
 
 // ===================== SEND EMAIL =====================
 sendEmailBtn.addEventListener("click", async () => {
-
-  // 1️⃣ Validate FIRST
   if (selectedDraftIndex === null) {
     alert("Please select a draft first");
     return;
@@ -292,7 +303,6 @@ sendEmailBtn.addEventListener("click", async () => {
   showThinking();
 
   try {
-    // 2️⃣ Send email
     const response = await fetch(
       "https://inboxai-backend-tb5j.onrender.com/email/send",
       {
@@ -310,11 +320,10 @@ sendEmailBtn.addEventListener("click", async () => {
       throw new Error("Email send failed");
     }
 
-    // 3️⃣ Success UI
     removeThinking();
     addMessage(`Email sent successfully to ${recipient}`, "bot");
 
-    // 4️⃣ Reset AFTER success
+    // Reset form
     recipientEmail.value = "";
     emailIntent.value = "";
     draftSuggestions = [];
@@ -328,28 +337,33 @@ sendEmailBtn.addEventListener("click", async () => {
   }
 });
 
-
 // ===================== CANCEL SEND =====================
 cancelSendBtn.addEventListener("click", () => {
   showStep(2);
 });
 
-// ===================== SEND COMMAND (original functionality) =====================
+// ===================== SEND COMMAND =====================
 async function sendCommand() {
   const command = input.value.trim();
   if (!command) return;
 
   addMessage(command, "user");
   input.value = "";
-
-
+  showThinking();
+const trimmedHistory = conversationHistory.slice(-10);
   try {
     const res = await fetch(
       "https://inboxai-backend-tb5j.onrender.com/command",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command, history: conversationHistory })
+        
+
+body: JSON.stringify({
+  command,
+  history: trimmedHistory
+})
+
       }
     );
 
@@ -360,7 +374,6 @@ async function sendCommand() {
     }
 
     const data = await res.json();
-    console.log("Backend response:", data);
     removeThinking();
 
     if (typeof data.reply === "string") {
@@ -378,7 +391,7 @@ async function sendCommand() {
   }
 }
 
-// ===================== EVENTS =====================
+// ===================== CHAT EVENT LISTENERS =====================
 if (sendBtn) {
   sendBtn.addEventListener("click", sendCommand);
 }
@@ -392,53 +405,164 @@ if (input) {
   });
 }
 
-// ===================== GREETING =====================
+// ===================== MEETING FUNCTIONS =====================
+// Initialize meeting date field
+if (document.getElementById("meetingDate")) {
+  document.getElementById("meetingDate").valueAsDate = new Date();
+}
 
-document.addEventListener(
-  "click",
-  () => {
-    if (!speechUnlocked) {
-      const unlock = new SpeechSynthesisUtterance(" ");
-      unlock.volume = 0;
-      speechSynthesis.speak(unlock);
-      speechUnlocked = true;
+// Time type toggle
+if (document.getElementById("meetingTimeType")) {
+  document.getElementById("meetingTimeType").addEventListener("change", (e) => {
+    const timeInput = document.getElementById("meetingTime");
+    if (e.target.value === "instant") {
+      const now = new Date();
+      timeInput.value = now.toTimeString().slice(0, 5);
+      timeInput.disabled = true;
+    } else {
+      timeInput.disabled = false;
     }
-  },
-  { once: true }
+  });
+}
+
+// Parse natural language command
+
+
+// Generate meeting link
+if (generateMeetingBtn) {
+  generateMeetingBtn.addEventListener("click", async () => {
+    const recipients = document.getElementById("meetingRecipients").value.trim();
+    const date = document.getElementById("meetingDate").value;
+    const time = document.getElementById("meetingTime").value;
+    const duration = Number(
+  document.getElementById("meetingDuration").value || 30
 );
 
-function showChatGreeting() {
-  if (greetingSpoken) return;
+    const title = document.getElementById("meetingTitle").value.trim();
+    const agenda = document.getElementById("meetingAgenda").value.trim();
 
-  addMessage(greetingText, "bot"); // text + speech handled here
-  greetingSpoken = true;
+    if (!recipients || !date || !time) {
+      alert("Please fill recipients, date and time");
+      return;
+    }
+
+    generateMeetingBtn.disabled = true;
+    generateMeetingBtn.textContent = "Scheduling...";
+
+    try {
+      const response = await fetch(
+        "https://inboxai-backend-tb5j.onrender.com/meeting/create",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title || "Meeting",
+            date,
+            time,
+            duration: Number(duration),
+            recipients: recipients.split(",").map(e => e.trim()),
+            agenda
+          })
+        }
+      );
+
+      if (!response.ok) throw new Error("Meeting creation failed");
+
+      const data = await response.json();
+
+      const meetLink = data.data.meetLink;
+
+      // UI updates
+      document.getElementById("generatedMeetingLink").textContent = meetLink;
+      document.getElementById("meetingLinkDisplay").style.display = "block";
+
+      document.getElementById("confirmMeetingRecipients").textContent = recipients;
+      document.getElementById("confirmMeetingTime").textContent =
+        new Date(`${date}T${time}`).toLocaleString();
+      document.getElementById("confirmMeetingDuration").textContent =
+        `${duration} minutes`;
+      document.getElementById("confirmMeetingLink").textContent = meetLink;
+
+      document.getElementById("meetingConfirmation").style.display = "block";
+
+      generatedMeetingData = data.data;
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to schedule meeting");
+    } finally {
+      generateMeetingBtn.disabled = false;
+      generateMeetingBtn.textContent = "Schedule Meeting";
+    }
+  });
 }
 
-// ===================== VIEW TOGGLE (CHAT / DRAFT) =====================
-const chatView = document.getElementById("chatView");
-const draftView = document.getElementById("draftView");
-const steps = document.querySelectorAll(".step");
 
-function switchMode(mode) {
-  chatView.style.display = "none";
-  draftView.style.display = "none";
-
-  steps.forEach(step => step.classList.remove("active"));
-
-  if (mode === "chat") {
-    chatView.style.display = "block";
-    steps[0].classList.add("active");
-
-    showChatGreeting(); // 👈 THIS IS THE KEY
-  }
-
-  if (mode === "draft") {
-    draftView.style.display = "block";
-    steps[1].classList.add("active");
-  }
+// Copy meeting link
+if (copyMeetingLinkBtn) {
+  copyMeetingLinkBtn.addEventListener("click", () => {
+    const link = document.getElementById("generatedMeetingLink").textContent;
+    navigator.clipboard.writeText(link).then(() => {
+      copyMeetingLinkBtn.textContent = "Copied!";
+      setTimeout(() => {
+        copyMeetingLinkBtn.textContent = "Copy Link";
+      }, 2000);
+    }).catch(err => {
+      console.error("Copy failed:", err);
+    });
+  });
 }
 
-// 🔓 After first user interaction → speak greeting
+// Send meeting invites
+
+
+// Cancel meeting
+if (cancelMeetingBtn) {
+  cancelMeetingBtn.addEventListener("click", resetMeetingMode);
+}
+
+function resetMeetingMode() {
+  if (document.getElementById("meetingCommand")) {
+    document.getElementById("meetingCommand").value = "";
+  }
+  if (document.getElementById("meetingRecipients")) {
+    document.getElementById("meetingRecipients").value = "";
+  }
+  if (document.getElementById("meetingDate")) {
+    document.getElementById("meetingDate").valueAsDate = new Date();
+  }
+  if (document.getElementById("meetingTime")) {
+    document.getElementById("meetingTime").value = "";
+  }
+  if (document.getElementById("meetingTimeType")) {
+    document.getElementById("meetingTimeType").value = "custom";
+    const timeInput = document.getElementById("meetingTime");
+    if (timeInput) timeInput.disabled = false;
+  }
+  if (document.getElementById("meetingDuration")) {
+    document.getElementById("meetingDuration").value = "30";
+  }
+  if (document.getElementById("meetingTitle")) {
+    document.getElementById("meetingTitle").value = "";
+  }
+  if (document.getElementById("meetingAgenda")) {
+    document.getElementById("meetingAgenda").value = "";
+  }
+  
+  const linkDisplay = document.getElementById("meetingLinkDisplay");
+  const confirmation = document.getElementById("meetingConfirmation");
+  
+  if (linkDisplay) linkDisplay.style.display = "none";
+  if (confirmation) confirmation.style.display = "none";
+  
+  generatedMeetingData = null;
+}
+
+// ===================== INITIALIZATION =====================
+// Start in chat mode
+switchMode("chat");
+
+// Initial greeting (speech)
 document.addEventListener("click", () => {
   if (!speechUnlocked) {
     const unlock = new SpeechSynthesisUtterance(" ");
@@ -446,17 +570,5 @@ document.addEventListener("click", () => {
     window.speechSynthesis.speak(unlock);
     speechUnlocked = true;
   }
-
   speak(greetingText);
 }, { once: true });
-// Dot clicks
-steps.forEach(step => {
-  step.addEventListener("click", () => {
-    const mode = step.dataset.mode;
-    switchMode(mode);
-  });
-});
-
-// Default view
-switchMode("chat");
-

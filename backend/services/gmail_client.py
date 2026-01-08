@@ -10,7 +10,7 @@ from ai_logic.readers.attachment_processor import (
     create_attachment_summary
 )
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/calendar"]
 
 
 TOKEN_FILE = "token.json"
@@ -38,7 +38,7 @@ def get_gmail_service():
                 CREDENTIALS_FILE,
                 SCOPES
             )
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=0, prompt="consent")
 
         # Save token for future runs
         with open(TOKEN_FILE, "w") as token:
@@ -193,3 +193,19 @@ def send_email(service, to: str, subject: str, body: str):
     )
 
     return sent_message
+
+def get_google_credentials():
+    if not os.path.exists(TOKEN_FILE):
+        raise RuntimeError("Google user not authenticated")
+
+    creds = Credentials.from_authorized_user_file(
+        TOKEN_FILE,
+        SCOPES
+    )
+
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        with open(TOKEN_FILE, "w") as token:
+            token.write(creds.to_json())
+
+    return creds

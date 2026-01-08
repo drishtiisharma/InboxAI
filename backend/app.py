@@ -5,9 +5,9 @@ from typing import List, Dict, Optional
 from dotenv import load_dotenv
 import traceback
 import re
-from pydantic import BaseModel
 from services.email_drafter import generate_email_drafts
 from services.gmail_client import send_email, get_gmail_service
+from services.meeting_routes import meeting_router
 
 from services.email_categorizer import get_email_category
 from services.gmail_client import get_unread_emails
@@ -17,7 +17,7 @@ from services.llm_client import intelligent_command_handler
 load_dotenv()
 
 app = FastAPI(title="InboxAI Backend")
-
+app.include_router(meeting_router)
 # ============================ CORS ============================
 app.add_middleware(
     CORSMiddleware,
@@ -175,6 +175,32 @@ def get_unread_email_categories():
         }
     }
 
+def create_meeting_from_command(meeting_payload: dict):
+    """
+    meeting_payload comes from LLM:
+    {
+        title, date, time, duration, recipients, agenda
+    }
+    """
+    from services.calendar_service import create_google_meeting
+    from services.gmail_client import get_google_credentials
+
+    creds = get_google_credentials()
+
+    meeting_data = {
+        "title": meeting_payload["title"],
+        "agenda": meeting_payload.get("agenda", ""),
+        "start": f"{meeting_payload['date']}T{meeting_payload['time']}",
+        "duration": meeting_payload["duration"],
+        "recipients": meeting_payload["recipients"]
+    }
+
+    return {
+        "reply": "Meeting scheduled successfully.",
+        "data": create_google_meeting(creds, meeting_data)
+    }
+
+
 # ============================ COMMAND ROUTER ============================
 @app.post("/command")
 def handle_command(payload: CommandPayload):
@@ -196,10 +222,11 @@ def handle_command(payload: CommandPayload):
 
         # 🧠 LLM-BASED SAFE COMMANDS
         function_map = {
-            "get_unread_emails_summary": get_unread_emails_summary,
-            "get_last_email_summary": get_last_email_summary,
-            "get_unread_email_categories": get_unread_email_categories
-        }
+    "get_unread_emails_summary": get_unread_emails_summary,
+    "get_last_email_summary": get_last_email_summary,
+    "get_unread_email_categories": get_unread_email_categories,
+    "create_meeting": create_meeting_from_command
+}
 
         # 🔁 FOLLOW-UP shortcut (NO LLM)
         if command in ["summarize them", "summarize", "summarise them"]:

@@ -58,7 +58,46 @@ tools = [
                 "required": ["sender_query"]
             }
         }
+    },
+    {
+    "type": "function",
+    "function": {
+        "name": "create_meeting",
+        "description": "Schedule a Google Calendar meeting with specified details",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Title of the meeting"
+                },
+                "date": {
+                    "type": "string",
+                    "description": "Meeting date in YYYY-MM-DD format"
+                },
+                "time": {
+                    "type": "string",
+                    "description": "Meeting start time in HH:MM (24h format)"
+                },
+                "duration": {
+                    "type": "integer",
+                    "description": "Duration of meeting in minutes"
+                },
+                "recipients": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Email addresses of attendees"
+                },
+                "agenda": {
+                    "type": "string",
+                    "description": "Agenda or description of the meeting"
+                }
+            },
+            "required": ["title", "date", "time", "duration", "recipients"]
+        }
     }
+}
+
 ]
 
 # ===================== BASIC LLM =====================
@@ -108,7 +147,28 @@ use get_unread_email_categories.
 - If the user asks whether they have emails from a specific sender
 (e.g., "GitHub", "Google", "LinkedIn", "from X"),
 use check_emails_from_sender with the sender name as parameter.
-- "summarize my inbox" → Use get_unread_emails_summary"""
+- "summarize my inbox" → Use get_unread_emails_summary
+You can help users with:
+- Reading and summarizing emails
+- Categorizing emails
+- Checking emails from specific senders
+- Scheduling meetings using Google Calendar
+
+Rules:
+- If the user asks to schedule, create, set up, or plan a meeting or call,
+  extract meeting details and call the function `create_meeting`.
+- Always convert dates to YYYY-MM-DD and time to HH:MM (24-hour format).
+- Ask for missing details ONLY if absolutely required.
+- Be concise, friendly, and confident.
+
+Examples:
+- "schedule a meeting tomorrow at 4pm with john@gmail.com"
+  → call create_meeting
+- "set up a call with the team on friday"
+  → call create_meeting
+
+
+"""
         }
     ]
 
