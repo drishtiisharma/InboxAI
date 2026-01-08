@@ -10,7 +10,8 @@ from ai_logic.readers.attachment_processor import (
     create_attachment_summary
 )
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/calendar"]
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify", 
+          "https://www.googleapis.com/auth/calendar"]
 
 
 TOKEN_FILE = "token.json"
@@ -194,18 +195,47 @@ def send_email(service, to: str, subject: str, body: str):
 
     return sent_message
 
+# In gmail_client.py, update the get_google_credentials function:
+
 def get_google_credentials():
-    if not os.path.exists(TOKEN_FILE):
-        raise RuntimeError("Google user not authenticated")
-
-    creds = Credentials.from_authorized_user_file(
-        TOKEN_FILE,
-        SCOPES
-    )
-
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+    """Get Google credentials with Calendar scope"""
+    
+    # Define Calendar-specific scopes
+    CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+    
+    creds = None
+    
+    # Check if token exists
+    if os.path.exists(TOKEN_FILE):
+        try:
+            # Try to load with Calendar scope
+            creds = Credentials.from_authorized_user_file(TOKEN_FILE, CALENDAR_SCOPES)
+        except Exception:
+            # Token exists but doesn't have Calendar scope - need re-auth
+            creds = None
+    
+    # If no valid Calendar credentials, force OAuth with Calendar scope
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+            except Exception:
+                # Refresh failed - need re-auth
+                creds = None
+    
+    if not creds:
+        # Force OAuth with Calendar scope
+        if not os.path.exists(CREDENTIALS_FILE):
+            raise RuntimeError("Missing client_secret.json for Google OAuth")
+        
+        flow = InstalledAppFlow.from_client_secrets_file(
+            CREDENTIALS_FILE,
+            CALENDAR_SCOPES  # Only Calendar scope
+        )
+        creds = flow.run_local_server(port=0, prompt="consent")
+        
+        # Save the new token
         with open(TOKEN_FILE, "w") as token:
             token.write(creds.to_json())
-
+    
     return creds

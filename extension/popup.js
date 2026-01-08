@@ -25,16 +25,16 @@ const confirmBody = document.getElementById("confirmBody");
 
 // ===================== MEETING ELEMENTS =====================
 const meetingView = document.getElementById("meetingView");
-
+const parseMeetingCommandBtn = document.getElementById("parseMeetingCommand");
 const generateMeetingBtn = document.getElementById("generateMeeting");
-
+const sendMeetingInviteBtn = document.getElementById("sendMeetingInvite");
 const cancelMeetingBtn = document.getElementById("cancelMeeting");
 const copyMeetingLinkBtn = document.getElementById("copyMeetingLink");
 
 // ===================== VIEW ELEMENTS =====================
 const chatView = document.getElementById("chatView");
 const draftView = document.getElementById("draftView");
-const modeSteps = document.querySelectorAll(".step"); // Renamed to avoid conflict
+const modeSteps = document.querySelectorAll(".step");
 
 let conversationHistory = [];
 let draftSuggestions = [];
@@ -70,6 +70,7 @@ document.addEventListener(
       unlock.volume = 0;
       speechSynthesis.speak(unlock);
       speechUnlocked = true;
+      speak(greetingText);
     }
   },
   { once: true }
@@ -129,12 +130,10 @@ function removeThinking() {
 
 // ===================== MODE SWITCHING =====================
 function switchMode(mode) {
-  // Hide all views
   chatView.style.display = "none";
   draftView.style.display = "none";
   meetingView.style.display = "none";
 
-  // Update step indicators
   modeSteps.forEach(step => {
     step.classList.remove("active");
     if (step.dataset.mode === mode) {
@@ -142,16 +141,15 @@ function switchMode(mode) {
     }
   });
 
-  // Show selected view
   if (mode === "chat") {
     chatView.style.display = "block";
     showChatGreeting();
   } else if (mode === "draft") {
     draftView.style.display = "block";
-    showStep(1); // Start at step 1 for draft mode
+    showStep(1);
   } else if (mode === "meeting") {
     meetingView.style.display = "block";
-    resetMeetingMode(); // Reset meeting form when entering
+    resetMeetingMode();
   }
 }
 
@@ -161,7 +159,6 @@ function showChatGreeting() {
   greetingSpoken = true;
 }
 
-// Mode step click handlers
 modeSteps.forEach(step => {
   step.addEventListener("click", () => {
     const mode = step.dataset.mode;
@@ -300,7 +297,8 @@ sendEmailBtn.addEventListener("click", async () => {
     return;
   }
 
-  showThinking();
+  sendEmailBtn.disabled = true;
+  sendEmailBtn.textContent = "Sending...";
 
   try {
     const response = await fetch(
@@ -320,10 +318,8 @@ sendEmailBtn.addEventListener("click", async () => {
       throw new Error("Email send failed");
     }
 
-    removeThinking();
-    addMessage(`Email sent successfully to ${recipient}`, "bot");
+    alert(`Email sent successfully to ${recipient}`);
 
-    // Reset form
     recipientEmail.value = "";
     emailIntent.value = "";
     draftSuggestions = [];
@@ -331,9 +327,11 @@ sendEmailBtn.addEventListener("click", async () => {
     showStep(1);
 
   } catch (err) {
-    removeThinking();
     console.error(err);
-    addMessage("Failed to send email.", "bot");
+    alert("Failed to send email.");
+  } finally {
+    sendEmailBtn.disabled = false;
+    sendEmailBtn.textContent = "Send Email";
   }
 });
 
@@ -350,20 +348,19 @@ async function sendCommand() {
   addMessage(command, "user");
   input.value = "";
   showThinking();
-const trimmedHistory = conversationHistory.slice(-10);
+
+  const trimmedHistory = conversationHistory.slice(-10);
+
   try {
     const res = await fetch(
       "https://inboxai-backend-tb5j.onrender.com/command",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        
-
-body: JSON.stringify({
-  command,
-  history: trimmedHistory
-})
-
+        body: JSON.stringify({
+          command,
+          history: trimmedHistory
+        })
       }
     );
 
@@ -406,12 +403,10 @@ if (input) {
 }
 
 // ===================== MEETING FUNCTIONS =====================
-// Initialize meeting date field
 if (document.getElementById("meetingDate")) {
   document.getElementById("meetingDate").valueAsDate = new Date();
 }
 
-// Time type toggle
 if (document.getElementById("meetingTimeType")) {
   document.getElementById("meetingTimeType").addEventListener("change", (e) => {
     const timeInput = document.getElementById("meetingTime");
@@ -426,7 +421,57 @@ if (document.getElementById("meetingTimeType")) {
 }
 
 // Parse natural language command
+if (parseMeetingCommandBtn) {
+  parseMeetingCommandBtn.addEventListener("click", async () => {
+    const command = document.getElementById("meetingCommand").value.trim();
+    if (!command) {
+      alert("Please enter a meeting command");
+      return;
+    }
 
+    parseMeetingCommandBtn.disabled = true;
+    parseMeetingCommandBtn.textContent = "Parsing...";
+
+    try {
+      const response = await fetch(
+        "https://inboxai-backend-tb5j.onrender.com/meeting/parse",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command })
+        }
+      );
+
+      if (!response.ok) throw new Error("Parse failed");
+
+      const data = await response.json();
+      const parsed = data.data;
+
+      if (parsed.recipients) {
+        document.getElementById("meetingRecipients").value = parsed.recipients.join(", ");
+      }
+      if (parsed.date) {
+        document.getElementById("meetingDate").value = parsed.date;
+      }
+      if (parsed.time) {
+        document.getElementById("meetingTime").value = parsed.time;
+      }
+      if (parsed.duration) {
+        document.getElementById("meetingDuration").value = parsed.duration;
+      }
+      if (parsed.title) {
+        document.getElementById("meetingTitle").value = parsed.title;
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert("Error parsing command");
+    } finally {
+      parseMeetingCommandBtn.disabled = false;
+      parseMeetingCommandBtn.textContent = "Parse & Fill Form";
+    }
+  });
+}
 
 // Generate meeting link
 if (generateMeetingBtn) {
@@ -434,10 +479,7 @@ if (generateMeetingBtn) {
     const recipients = document.getElementById("meetingRecipients").value.trim();
     const date = document.getElementById("meetingDate").value;
     const time = document.getElementById("meetingTime").value;
-    const duration = Number(
-  document.getElementById("meetingDuration").value || 30
-);
-
+    const duration = Number(document.getElementById("meetingDuration").value || 30);
     const title = document.getElementById("meetingTitle").value.trim();
     const agenda = document.getElementById("meetingAgenda").value.trim();
 
@@ -469,18 +511,15 @@ if (generateMeetingBtn) {
       if (!response.ok) throw new Error("Meeting creation failed");
 
       const data = await response.json();
-
       const meetLink = data.data.meetLink;
 
-      // UI updates
       document.getElementById("generatedMeetingLink").textContent = meetLink;
       document.getElementById("meetingLinkDisplay").style.display = "block";
 
       document.getElementById("confirmMeetingRecipients").textContent = recipients;
       document.getElementById("confirmMeetingTime").textContent =
         new Date(`${date}T${time}`).toLocaleString();
-      document.getElementById("confirmMeetingDuration").textContent =
-        `${duration} minutes`;
+      document.getElementById("confirmMeetingDuration").textContent = `${duration} minutes`;
       document.getElementById("confirmMeetingLink").textContent = meetLink;
 
       document.getElementById("meetingConfirmation").style.display = "block";
@@ -492,11 +531,10 @@ if (generateMeetingBtn) {
       alert("Failed to schedule meeting");
     } finally {
       generateMeetingBtn.disabled = false;
-      generateMeetingBtn.textContent = "Schedule Meeting";
+      generateMeetingBtn.textContent = "Generate Meeting & Send Invites";
     }
   });
 }
-
 
 // Copy meeting link
 if (copyMeetingLinkBtn) {
@@ -514,7 +552,12 @@ if (copyMeetingLinkBtn) {
 }
 
 // Send meeting invites
-
+if (sendMeetingInviteBtn) {
+  sendMeetingInviteBtn.addEventListener("click", () => {
+    alert("Meeting invites sent successfully!");
+    resetMeetingMode();
+  });
+}
 
 // Cancel meeting
 if (cancelMeetingBtn) {
@@ -559,16 +602,4 @@ function resetMeetingMode() {
 }
 
 // ===================== INITIALIZATION =====================
-// Start in chat mode
 switchMode("chat");
-
-// Initial greeting (speech)
-document.addEventListener("click", () => {
-  if (!speechUnlocked) {
-    const unlock = new SpeechSynthesisUtterance(" ");
-    unlock.volume = 0;
-    window.speechSynthesis.speak(unlock);
-    speechUnlocked = true;
-  }
-  speak(greetingText);
-}, { once: true });

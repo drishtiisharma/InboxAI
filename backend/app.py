@@ -319,3 +319,16 @@ def send_email_route(req: SendEmailRequest):
             status_code=500,
             detail="Failed to send email"
         )
+@app.get("/check-scopes")
+def check_scopes():
+    if os.path.exists("token.json"):
+        with open("token.json", "r") as f:
+            import json
+            token_data = json.load(f)
+            scopes = token_data.get("scopes", [])
+            return {
+                "has_gmail_scope": "https://www.googleapis.com/auth/gmail.modify" in scopes,
+                "has_calendar_scope": "https://www.googleapis.com/auth/calendar" in scopes,
+                "scopes": scopes
+            }
+    return {"error": "No token.json found"}

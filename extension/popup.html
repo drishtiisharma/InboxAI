@@ -3,564 +3,6 @@
 <head>
   <title>InboxAI</title>
   <style>
-    /* ===================== MEETING STYLES ===================== */
-.meeting-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.meeting-command-section,
-.meeting-form-section {
-  flex: 1;
-}
-
-.meeting-link-box {
-  padding: 16px;
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  border-radius: 12px;
-  border: 2px solid #10b981;
-}
-
-body.dark .meeting-link-box {
-  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
-  border-color: #059669;
-}
-
-.meeting-link {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  color: #065f46;
-  word-break: break-all;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 6px;
-}
-
-body.dark .meeting-link {
-  color: #d1fae5;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-/* Copy button specific styles - Add this if not already in your existing CSS */
-.btn-copy {
-  padding: 6px 12px;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-copy:hover {
-  background: #059669;
-  transform: translateY(-1px);
-}
-
-/* Make step indicator steps clickable (for the 3-step mode switching) */
-.step {
-  cursor: pointer; /* Add this if not already present */
-}
-
-/* Meeting-specific button styles (if needed separately) */
-#generateMeeting, #parseMeetingCommand {
-  width: 100%;
-  margin-top: 18px;
-  padding: 15px 28px;
-  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-  color: white;
-  border: none;
-  border-radius: 16px;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
-  letter-spacing: 0.3px;
-}
-
-#generateMeeting:hover, #parseMeetingCommand:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(6, 182, 212, 0.5);
-}
-
-#generateMeeting:active, #parseMeetingCommand:active {
-  transform: translateY(-1px);
-}
-
-#generateMeeting:disabled, #parseMeetingCommand:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-    /* ===================== DRAFT CARDS ===================== */
-.draft-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin: 20px 0;
-}
-
-.draft-card {
-    padding: 16px;
-    border-radius: 12px;
-    border: 2px solid #e2e8f0;
-    background: #f8fafc;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-}
-
-body.dark .draft-card {
-    background: #0f172a;
-    border-color: #334155;
-}
-
-.draft-card:hover {
-    border-color: #06b6d4;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
-}
-
-.draft-card.selected {
-    border-color: #06b6d4;
-    background: linear-gradient(135deg, #ecfeff 0%, #f0fdfa 100%);
-    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
-}
-
-body.dark .draft-card.selected {
-    background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
-    border-color: #0e7490;
-}
-
-.draft-card-radio {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    width: 20px;
-    height: 20px;
-    border: 2px solid #cbd5e1;
-    border-radius: 50%;
-    background: white;
-    transition: all 0.3s ease;
-}
-
-body.dark .draft-card-radio {
-    background: #1e293b;
-    border-color: #475569;
-}
-
-.draft-card.selected .draft-card-radio {
-    border-color: #06b6d4;
-    background: #06b6d4;
-    box-shadow: inset 0 0 0 4px white;
-}
-
-body.dark .draft-card.selected .draft-card-radio {
-    box-shadow: inset 0 0 0 4px #1e293b;
-}
-
-.draft-card-header {
-    font-weight: 600;
-    color: #0f172a;
-    margin-bottom: 8px;
-    padding-right: 30px;
-}
-
-body.dark .draft-card-header {
-    color: #e2e8f0;
-}
-
-.draft-card-subject {
-    font-size: 13px;
-    color: #06b6d4;
-    font-weight: 500;
-    margin-bottom: 8px;
-}
-
-.draft-card-body {
-    font-size: 13px;
-    color: #64748b;
-    line-height: 1.5;
-    max-height: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-body.dark .draft-card-body {
-    color: #94a3b8;
-}
-
-/* ===================== CONFIRMATION BOX ===================== */
-.confirmation-box {
-    padding: 20px;
-    margin: 20px 0;
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-    border-radius: 12px;
-    border: 2px solid #fbbf24;
-    animation: fadeIn 0.5s ease;
-}
-
-body.dark .confirmation-box {
-    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
-    border-color: #d97706;
-}
-
-.confirmation-box h4 {
-    color: #92400e;
-    font-size: 16px;
-    margin-bottom: 12px;
-    font-weight: 600;
-}
-
-body.dark .confirmation-box h4 {
-    color: #fbbf24;
-}
-
-.confirmation-detail {
-    margin: 8px 0;
-    font-size: 13px;
-    color: #78350f;
-}
-
-body.dark .confirmation-detail {
-    color: #fde68a;
-}
-
-.confirmation-detail strong {
-    font-weight: 600;
-}
-
-.confirmation-buttons {
-    display: flex;
-    gap: 12px;
-    margin-top: 16px;
-}
-
-.btn-send {
-    flex: 1;
-    padding: 12px 20px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-.btn-send:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
-}
-
-.btn-cancel {
-    flex: 1;
-    padding: 12px 20px;
-    background: #e2e8f0;
-    color: #475569;
-    border: none;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-body.dark .btn-cancel {
-    background: #334155;
-    color: #cbd5e1;
-}
-
-.btn-cancel:hover {
-    background: #cbd5e1;
-    transform: translateY(-2px);
-}
-
-body.dark .btn-cancel:hover {
-    background: #475569;
-}
-
-/* ===================== INPUT SECTIONS ===================== */
-.input-section {
-    margin: 16px 0;
-}
-
-.input-label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 8px;
-}
-
-body.dark .input-label {
-    color: #cbd5e1;
-}
-
-.input-field {
-    width: 100%;
-    padding: 12px 16px;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    font-size: 14px;
-    font-family: inherit;
-    background: #f8fafc;
-    color: #0f172a;
-    transition: all 0.3s ease;
-    outline: none;
-}
-
-body.dark .input-field {
-    background: #0f172a;
-    border-color: #334155;
-    color: #e2e8f0;
-}
-
-.input-field:focus {
-    border-color: #06b6d4;
-    background: #ffffff;
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
-}
-
-body.dark .input-field:focus {
-    background: #1e293b;
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
-}
-
-textarea.input-field {
-    min-height: 80px;
-    resize: vertical;
-}
-
-/* ===================== STEP INDICATOR ===================== */
-.step-indicator {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 20px;
-}
-
-.step {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #cbd5e1;
-    transition: all 0.3s ease;
-}
-
-body.dark .step {
-    background: #475569;
-}
-
-.step.active {
-    width: 24px;
-    border-radius: 4px;
-    background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-}
-
-  body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  transition: background-color 0.3s ease;
-  background: #ffffff;
-}
-
-body.dark {
-  background: #1e293b;
-}
-
-.container {
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-  padding: 35px 30px;
-  width: 380px;
-  max-width: 100%;
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-body.dark .container {
-  background: #1e293b;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-}
-
-
-    .message {
-  white-space: pre-wrap;
-}
-.message p {
-  margin: 0 0 1em 0;
-}
-
-.message p:last-child {
-  margin-bottom: 0;
-}
-
-    /* ===================== THINKING INDICATOR ===================== */
-.thinking {
-    text-align: center;
-    padding: 20px;
-    margin: 20px 0;
-    background: rgba(0, 120, 212, 0.1);
-    border-radius: 10px;
-    border-left: 4px solid #0078d4;
-}
-
-.thinking-dots {
-    display: inline-flex;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.thinking-dots span {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #0078d4;
-    animation: thinking-bounce 1.4s infinite ease-in-out both;
-}
-
-.thinking-dots span:nth-child(1) {
-    animation-delay: -0.32s;
-}
-
-.thinking-dots span:nth-child(2) {
-    animation-delay: -0.16s;
-}
-
-@keyframes thinking-bounce {
-    0%, 80%, 100% {
-        transform: scale(0);
-        opacity: 0.5;
-    }
-    40% {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
-
-.thinking p {
-    margin: 0;
-    color: #0078d4;
-    font-weight: 500;
-}
-
-/* ===================== SUMMARY DISPLAY ===================== */
-.summary {
-    padding: 20px;
-    margin: 20px 0;
-    background: rgba(0, 200, 83, 0.1);
-    border-radius: 10px;
-    border-left: 4px solid #00c853;
-    animation: fadeIn 0.5s ease-in;
-}
-
-.summary p {
-    margin: 0;
-    line-height: 1.6;
-    color: #333;
-}
-
-.dark .summary p {
-    color: #f0f0f0;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-#response {
-    min-height: 100px;
-    transition: all 0.3s ease;
-}
-
-/* ===================== CHAT MESSAGES ===================== */
-.chat-messages {
-    max-height: 300px;
-    overflow-y: auto;
-    margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.message {
-    padding: 12px 16px;
-    border-radius: 16px;
-    max-width: 85%;
-    word-wrap: break-word;
-    animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.message.user {
-    align-self: flex-end;
-    background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-    color: white;
-    border-bottom-right-radius: 4px;
-}
-
-.message.bot {
-    align-self: flex-start;
-    background: linear-gradient(135deg, #f0fdfa 0%, #ecfeff 100%);
-    border: 2px solid #a5f3fc;
-    color: #0f172a;
-    border-bottom-left-radius: 4px;
-}
-
-body.dark .message.bot {
-    background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
-    border-color: #0e7490;
-    color: #e2e8f0;
-}
-
-.chat-messages::-webkit-scrollbar {
-    width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-}
-
-body.dark .chat-messages::-webkit-scrollbar-thumb {
-    background: #475569;
-}
-
     * {
       margin: 0;
       padding: 0;
@@ -575,10 +17,11 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
       justify-content: center;
       padding: 20px;
       transition: background-color 0.3s ease;
+      background: #ffffff;
     }
 
     body.dark {
-      background-color: #0f172a;
+      background: #0f172a;
     }
 
     .container {
@@ -586,7 +29,7 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
       border-radius: 24px;
       box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
       padding: 35px 30px;
-      width: 380px;
+      width: 480px;
       max-width: 100%;
       position: relative;
       transition: all 0.3s ease;
@@ -662,6 +105,210 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
       letter-spacing: -1px;
     }
 
+    /* ===================== STEP INDICATOR ===================== */
+    .step-indicator {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .step {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    body.dark .step {
+      background: #475569;
+    }
+
+    .step.active {
+      width: 24px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+    }
+
+    /* ===================== CHAT MESSAGES ===================== */
+    .chat-messages {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message {
+      padding: 12px 16px;
+      border-radius: 16px;
+      max-width: 85%;
+      word-wrap: break-word;
+      animation: slideIn 0.3s ease;
+      white-space: pre-wrap;
+    }
+
+    .message p {
+      margin: 0 0 1em 0;
+    }
+
+    .message p:last-child {
+      margin-bottom: 0;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: linear-gradient(135deg, #f0fdfa 0%, #ecfeff 100%);
+      border: 2px solid #a5f3fc;
+      color: #0f172a;
+      border-bottom-left-radius: 4px;
+    }
+
+    body.dark .message.bot {
+      background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
+      border-color: #0e7490;
+      color: #e2e8f0;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    body.dark .chat-messages::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+
+    /* ===================== THINKING INDICATOR ===================== */
+    .thinking {
+      text-align: center;
+      padding: 20px;
+      margin: 20px 0;
+      background: rgba(0, 120, 212, 0.1);
+      border-radius: 10px;
+      border-left: 4px solid #0078d4;
+    }
+
+    .thinking-dots {
+      display: inline-flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .thinking-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #0078d4;
+      animation: thinking-bounce 1.4s infinite ease-in-out both;
+    }
+
+    .thinking-dots span:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .thinking-dots span:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+
+    @keyframes thinking-bounce {
+      0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .thinking p {
+      margin: 0;
+      color: #0078d4;
+      font-weight: 500;
+    }
+
+    /* ===================== INPUT SECTIONS ===================== */
+    .input-section {
+      margin: 16px 0;
+    }
+
+    .input-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+
+    body.dark .input-label {
+      color: #cbd5e1;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #f8fafc;
+      color: #0f172a;
+      transition: all 0.3s ease;
+      outline: none;
+    }
+
+    body.dark .input-field {
+      background: #0f172a;
+      border-color: #334155;
+      color: #e2e8f0;
+    }
+
+    .input-field:focus {
+      border-color: #06b6d4;
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+    }
+
+    body.dark .input-field:focus {
+      background: #1e293b;
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
+    }
+
+    textarea.input-field {
+      min-height: 80px;
+      resize: vertical;
+    }
+
     #input {
       width: 100%;
       min-height: 80px;
@@ -699,7 +346,8 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
       color: #94a3b8;
     }
 
-    #send {
+    /* ===================== BUTTONS ===================== */
+    #send, #generateDrafts, #confirmSelection, #generateMeeting, #parseMeetingCommand {
       width: 100%;
       margin-top: 18px;
       padding: 15px 28px;
@@ -715,44 +363,276 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
       letter-spacing: 0.3px;
     }
 
-    #send:hover {
+    #send:hover, #generateDrafts:hover, #confirmSelection:hover, #generateMeeting:hover, #parseMeetingCommand:hover {
       transform: translateY(-3px);
       box-shadow: 0 12px 28px rgba(6, 182, 212, 0.5);
     }
 
-    #send:active {
+    #send:active, #generateDrafts:active, #confirmSelection:active, #generateMeeting:active, #parseMeetingCommand:active {
       transform: translateY(-1px);
     }
 
-    #generateDrafts, #confirmSelection {
-      width: 100%;
-      margin-top: 18px;
-      padding: 15px 28px;
-      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-      color: white;
-      border: none;
-      border-radius: 16px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
-      letter-spacing: 0.3px;
-    }
-
-    #generateDrafts:hover, #confirmSelection:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 28px rgba(6, 182, 212, 0.5);
-    }
-
-    #generateDrafts:active, #confirmSelection:active {
-      transform: translateY(-1px);
-    }
-
-    #generateDrafts:disabled, #confirmSelection:disabled {
+    #generateDrafts:disabled, #confirmSelection:disabled, #generateMeeting:disabled, #parseMeetingCommand:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
+    }
+
+    .btn-send {
+      flex: 1;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-send:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 12px 20px;
+      background: #e2e8f0;
+      color: #475569;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    body.dark .btn-cancel {
+      background: #334155;
+      color: #cbd5e1;
+    }
+
+    .btn-cancel:hover {
+      background: #cbd5e1;
+      transform: translateY(-2px);
+    }
+
+    body.dark .btn-cancel:hover {
+      background: #475569;
+    }
+
+    .btn-copy {
+      padding: 6px 12px;
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-copy:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+
+    /* ===================== DRAFT CARDS ===================== */
+    .draft-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .draft-card {
+      padding: 16px;
+      border-radius: 12px;
+      border: 2px solid #e2e8f0;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    body.dark .draft-card {
+      background: #0f172a;
+      border-color: #334155;
+    }
+
+    .draft-card:hover {
+      border-color: #06b6d4;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+    }
+
+    .draft-card.selected {
+      border-color: #06b6d4;
+      background: linear-gradient(135deg, #ecfeff 0%, #f0fdfa 100%);
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+    }
+
+    body.dark .draft-card.selected {
+      background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
+      border-color: #0e7490;
+    }
+
+    .draft-card-radio {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #cbd5e1;
+      border-radius: 50%;
+      background: white;
+      transition: all 0.3s ease;
+    }
+
+    body.dark .draft-card-radio {
+      background: #1e293b;
+      border-color: #475569;
+    }
+
+    .draft-card.selected .draft-card-radio {
+      border-color: #06b6d4;
+      background: #06b6d4;
+      box-shadow: inset 0 0 0 4px white;
+    }
+
+    body.dark .draft-card.selected .draft-card-radio {
+      box-shadow: inset 0 0 0 4px #1e293b;
+    }
+
+    .draft-card-header {
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 8px;
+      padding-right: 30px;
+    }
+
+    body.dark .draft-card-header {
+      color: #e2e8f0;
+    }
+
+    .draft-card-subject {
+      font-size: 13px;
+      color: #06b6d4;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .draft-card-body {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.5;
+      max-height: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    body.dark .draft-card-body {
+      color: #94a3b8;
+    }
+
+    /* ===================== CONFIRMATION BOX ===================== */
+    .confirmation-box {
+      padding: 20px;
+      margin: 20px 0;
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-radius: 12px;
+      border: 2px solid #fbbf24;
+      animation: fadeIn 0.5s ease;
+    }
+
+    body.dark .confirmation-box {
+      background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+      border-color: #d97706;
+    }
+
+    .confirmation-box h4 {
+      color: #92400e;
+      font-size: 16px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    body.dark .confirmation-box h4 {
+      color: #fbbf24;
+    }
+
+    .confirmation-detail {
+      margin: 8px 0;
+      font-size: 13px;
+      color: #78350f;
+    }
+
+    body.dark .confirmation-detail {
+      color: #fde68a;
+    }
+
+    .confirmation-detail strong {
+      font-weight: 600;
+    }
+
+    .confirmation-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ===================== MEETING STYLES ===================== */
+    .meeting-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .meeting-command-section,
+    .meeting-form-section {
+      flex: 1;
+    }
+
+    .meeting-link-box {
+      padding: 16px;
+      background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+      border-radius: 12px;
+      border: 2px solid #10b981;
+    }
+
+    body.dark .meeting-link-box {
+      background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+      border-color: #059669;
+    }
+
+    .meeting-link {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #065f46;
+      word-break: break-all;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 6px;
+    }
+
+    body.dark .meeting-link {
+      color: #d1fae5;
+      background: rgba(0, 0, 0, 0.3);
     }
 
     .form-step h4 {
@@ -763,6 +643,7 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
       color: #cbd5e1;
     }
 
+    /* ===================== OUTPUT ===================== */
     #output {
       margin-top: 25px;
       padding: 18px;
@@ -812,146 +693,149 @@ body.dark .chat-messages::-webkit-scrollbar-thumb {
 
     <!-- Step Indicator -->
     <div class="step-indicator" id="modeIndicator">
-  <div class="step active" data-mode="chat"></div>
-  <div class="step" data-mode="draft"></div>
-   <div class="step" data-mode="meeting"></div>
-</div>
-
-<div id="draftView" style="display:none;">
-    <!-- Step 1: Input Form -->
-    <div id="inputForm" class="form-step">
-      <div class="input-section">
-        <label class="input-label">Recipient Email</label>
-        <input type="email" id="recipientEmail" class="input-field" placeholder="recipient@example.com">
-      </div>
-
-      <div class="input-section">
-        <label class="input-label">Email Intent</label>
-        <textarea id="emailIntent" class="input-field" placeholder="What do you want to say? (e.g., 'Schedule a meeting for next week')"></textarea>
-      </div>
-
-      <button id="generateDrafts">Generate Draft Suggestions</button>
+      <div class="step active" data-mode="chat"></div>
+      <div class="step" data-mode="draft"></div>
+      <div class="step" data-mode="meeting"></div>
     </div>
 
-    <!-- Step 2: Draft Selection -->
-    <div id="draftSelection" class="form-step" style="display: none;">
-      <h4 style="text-align: center; color: #475569; margin-bottom: 16px;">Select a Draft</h4>
-      <div class="draft-cards" id="draftCards"></div>
-      <button id="confirmSelection" style="margin-top: 16px;">Continue with Selected Draft</button>
+    <!-- Chat View -->
+    <div id="chatView">
+      <div class="chat-messages" id="chatMessages"></div>
+      <textarea id="input" placeholder="Say Something"></textarea>
+      <button id="send">Send Command</button>
     </div>
 
-    <!-- Step 3: Confirmation -->
-    <div id="confirmationStep" class="form-step" style="display: none;">
-      <div class="confirmation-box">
-        <h4>Ready to Send</h4>
-        <div class="confirmation-detail"><strong>To:</strong> <span id="confirmRecipient"></span></div>
-        <div class="confirmation-detail"><strong>Subject:</strong> <span id="confirmSubject"></span></div>
-        <div class="confirmation-detail" style="margin-top: 12px;">
-          <strong>Message:</strong><br>
-          <div id="confirmBody" style="margin-top: 8px; white-space: pre-wrap;"></div>
+    <!-- Draft View -->
+    <div id="draftView" style="display:none;">
+      <!-- Step 1: Input Form -->
+      <div id="inputForm" class="form-step">
+        <div class="input-section">
+          <label class="input-label">Recipient Email</label>
+          <input type="email" id="recipientEmail" class="input-field" placeholder="recipient@example.com">
         </div>
-        <div class="confirmation-buttons">
-          <button class="btn-send" id="sendEmail">Send Email</button>
-          <button class="btn-cancel" id="cancelSend">Cancel</button>
+
+        <div class="input-section">
+          <label class="input-label">Email Intent</label>
+          <textarea id="emailIntent" class="input-field" placeholder="What do you want to say? (e.g., 'Schedule a meeting for next week')"></textarea>
         </div>
-      </div>
-    </div>
-</div>
-<div id="meetingView" style="display:none;">
-  <div class="meeting-layout">
-    <!-- Command Input -->
-    <div class="meeting-command-section">
-      <h4 style="text-align: center; margin-bottom: 16px;">Quick Schedule</h4>
-      <div class="input-section">
-        <label class="input-label">Natural Command</label>
-        <textarea id="meetingCommand" class="input-field" placeholder="e.g., 'Schedule a meeting with john@example.com tomorrow at 3pm'"></textarea>
-      </div>
-      <button id="parseMeetingCommand">Parse & Fill Form</button>
-      
-      <div style="margin: 20px 0; text-align: center; color: #94a3b8; font-size: 12px;">OR</div>
-    </div>
 
-    <!-- Form Fields -->
-    <div class="meeting-form-section">
-      <h4 style="text-align: center; margin-bottom: 16px;">Meeting Details</h4>
-      
-      <div class="input-section">
-        <label class="input-label">Recipient Email(s)</label>
-        <input type="text" id="meetingRecipients" class="input-field" placeholder="email@example.com, another@example.com">
+        <button id="generateDrafts">Generate Draft Suggestions</button>
       </div>
 
-      <div class="input-section">
-        <label class="input-label">Date</label>
-        <input type="date" id="meetingDate" class="input-field">
+      <!-- Step 2: Draft Selection -->
+      <div id="draftSelection" class="form-step" style="display: none;">
+        <h4 style="text-align: center; margin-bottom: 16px;">Select a Draft</h4>
+        <div class="draft-cards" id="draftCards"></div>
+        <button id="confirmSelection">Continue with Selected Draft</button>
       </div>
 
-      <div class="input-section">
-        <label class="input-label">Time</label>
-        <div style="display: flex; gap: 8px;">
-          <input type="time" id="meetingTime" class="input-field" style="flex: 1;">
-          <select id="meetingTimeType" class="input-field" style="flex: 0 0 auto; width: 120px;">
-            <option value="custom">Custom</option>
-            <option value="instant">Now</option>
-          </select>
+      <!-- Step 3: Confirmation -->
+      <div id="confirmationStep" class="form-step" style="display: none;">
+        <div class="confirmation-box">
+          <h4>Ready to Send</h4>
+          <div class="confirmation-detail"><strong>To:</strong> <span id="confirmRecipient"></span></div>
+          <div class="confirmation-detail"><strong>Subject:</strong> <span id="confirmSubject"></span></div>
+          <div class="confirmation-detail" style="margin-top: 12px;">
+            <strong>Message:</strong><br>
+            <div id="confirmBody" style="margin-top: 8px; white-space: pre-wrap;"></div>
+          </div>
+          <div class="confirmation-buttons">
+            <button class="btn-send" id="sendEmail">Send Email</button>
+            <button class="btn-cancel" id="cancelSend">Cancel</button>
+          </div>
         </div>
       </div>
+    </div>
 
-      <div class="input-section">
-        <label class="input-label">Duration (minutes)</label>
-        <input type="number" id="meetingDuration" class="input-field" value="30" min="15" step="15">
+    <!-- Meeting Management View -->
+    <div id="meetingView" style="display:none;">
+      <div class="meeting-layout">
+        <!-- Command Input -->
+        <div class="meeting-command-section">
+          <h4 style="text-align: center; margin-bottom: 16px;">Quick Schedule</h4>
+          <div class="input-section">
+            <label class="input-label">Natural Command</label>
+            <textarea id="meetingCommand" class="input-field" placeholder="e.g., 'Schedule a meeting with john@example.com tomorrow at 3pm'"></textarea>
+          </div>
+          <button id="parseMeetingCommand">Parse & Fill Form</button>
+          
+          <div style="margin: 20px 0; text-align: center; color: #94a3b8; font-size: 12px;">OR</div>
+        </div>
+
+        <!-- Form Fields -->
+        <div class="meeting-form-section">
+          <h4 style="text-align: center; margin-bottom: 16px;">Meeting Details</h4>
+          
+          <div class="input-section">
+            <label class="input-label">Recipient Email(s)</label>
+            <input type="text" id="meetingRecipients" class="input-field" placeholder="email@example.com, another@example.com">
+          </div>
+
+          <div class="input-section">
+            <label class="input-label">Date</label>
+            <input type="date" id="meetingDate" class="input-field">
+          </div>
+
+          <div class="input-section">
+            <label class="input-label">Time</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="time" id="meetingTime" class="input-field" style="flex: 1;">
+              <select id="meetingTimeType" class="input-field" style="flex: 0 0 auto; width: 120px;">
+                <option value="custom">Custom</option>
+                <option value="instant">Now</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-section">
+            <label class="input-label">Duration (minutes)</label>
+            <input type="number" id="meetingDuration" class="input-field" value="30" min="15" step="15">
+          </div>
+
+          <div class="input-section">
+            <label class="input-label">Meeting Title</label>
+            <input type="text" id="meetingTitle" class="input-field" placeholder="Quick sync">
+          </div>
+
+          <div class="input-section">
+            <label class="input-label">Agenda (optional)</label>
+            <textarea id="meetingAgenda" class="input-field" placeholder="What we'll discuss..."></textarea>
+          </div>
+        </div>
       </div>
 
-      <div class="input-section">
-        <label class="input-label">Meeting Title</label>
-        <input type="text" id="meetingTitle" class="input-field" placeholder="Quick sync">
+      <!-- Generated Meeting Link Display -->
+      <div id="meetingLinkDisplay" style="display: none; margin-top: 20px;">
+        <div class="meeting-link-box">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <h4 style="color: #10b981; margin: 0;">Meeting Link Generated</h4>
+            <button id="copyMeetingLink" class="btn-copy">Copy Link</button>
+          </div>
+          <div id="generatedMeetingLink" class="meeting-link"></div>
+        </div>
       </div>
 
-      <div class="input-section">
-        <label class="input-label">Agenda (optional)</label>
-        <textarea id="meetingAgenda" class="input-field" placeholder="What we'll discuss..."></textarea>
+      <button id="generateMeeting">Generate Meeting & Send Invites</button>
+
+      <!-- Meeting Confirmation -->
+      <div id="meetingConfirmation" style="display: none; margin-top: 20px;">
+        <div class="confirmation-box">
+          <h4>Meeting Ready to Send</h4>
+          <div class="confirmation-detail"><strong>To:</strong> <span id="confirmMeetingRecipients"></span></div>
+          <div class="confirmation-detail"><strong>When:</strong> <span id="confirmMeetingTime"></span></div>
+          <div class="confirmation-detail"><strong>Duration:</strong> <span id="confirmMeetingDuration"></span></div>
+          <div class="confirmation-detail"><strong>Link:</strong> <span id="confirmMeetingLink"></span></div>
+          <div class="confirmation-buttons">
+            <button class="btn-send" id="sendMeetingInvite">Send Invites</button>
+            <button class="btn-cancel" id="cancelMeeting">Cancel</button>
+          </div>
+        </div>
       </div>
     </div>
+
+    <p id="output"></p>
   </div>
 
-  <!-- Generated Meeting Link Display -->
-  <div id="meetingLinkDisplay" style="display: none; margin-top: 20px;">
-    <div class="meeting-link-box">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <h4 style="color: #10b981; margin: 0;">Meeting Link Generated</h4>
-        <button id="copyMeetingLink" class="btn-copy">Copy Link</button>
-      </div>
-      <div id="generatedMeetingLink" class="meeting-link"></div>
-    </div>
-  </div>
-
-  <button id="generateMeeting">Generate Meeting & Send Invites</button>
-
-  <!-- Meeting Confirmation -->
-  <div id="meetingConfirmation" style="display: none; margin-top: 20px;">
-    <div class="confirmation-box">
-      <h4>Meeting Ready to Send</h4>
-      <div class="confirmation-detail"><strong>To:</strong> <span id="confirmMeetingRecipients"></span></div>
-      <div class="confirmation-detail"><strong>When:</strong> <span id="confirmMeetingTime"></span></div>
-      <div class="confirmation-detail"><strong>Duration:</strong> <span id="confirmMeetingDuration"></span></div>
-      <div class="confirmation-detail"><strong>Link:</strong> <span id="confirmMeetingLink"></span></div>
-      <div class="confirmation-buttons">
-        <button class="btn-send" id="sendMeetingInvite">Send Invites</button>
-        <button class="btn-cancel" id="cancelMeeting">Cancel</button>
-      </div>
-    </div>
-  </div>
-</div>
-  <div id="chatView">
-  <div class="chat-messages" id="chatMessages"></div>
-
-  <textarea id="input" placeholder="Say Something"></textarea>
-  <button id="send">Send Command</button>
-</div>
-
-  <p id="output"></p>
-</div>
-
-<script src="popup.js"></script>
-
+  <script src="popup.js"></script>
 </body>
 </html>
