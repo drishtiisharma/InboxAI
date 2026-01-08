@@ -144,7 +144,6 @@ function removeThinking() {
 }
 
 // ===================== GENERATE DRAFTS =====================
-// ===================== GENERATE DRAFTS =====================
 generateDraftsBtn.addEventListener("click", async () => {
   console.log("🔥 GENERATE BUTTON CLICKED");
   const recipient = recipientEmail.value.trim();
@@ -175,34 +174,52 @@ generateDraftsBtn.addEventListener("click", async () => {
       }
     );
 
+    console.log("Response status:", response.status);
+    
+    // Try to parse the response regardless of status
+    const data = await response.json();
+    console.log("Full response data:", JSON.stringify(data, null, 2));
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("API Error:", errorData);
-      throw new Error(`Draft generation failed: ${response.status}`);
+      console.error("API Error Response:", data);
+      throw new Error(`Draft generation failed: ${response.status} - ${data.message || 'Unknown error'}`);
     }
 
-    const data = await response.json();
-    console.log("Draft response:", data);
+    // Log the structure to debug
+    console.log("Data structure:", {
+      hasData: !!data.data,
+      dataKeys: data.data ? Object.keys(data.data) : 'no data',
+      hasDrafts: data.data && data.data.drafts,
+      draftsType: data.data && data.data.drafts ? typeof data.data.drafts : 'no drafts',
+      isArray: data.data && data.data.drafts && Array.isArray(data.data.drafts),
+      draftsLength: data.data && data.data.drafts && data.data.drafts.length
+    });
 
     // Check if drafts exist in the expected structure
     if (!data.data || !data.data.drafts || !Array.isArray(data.data.drafts)) {
-      throw new Error("Invalid response structure");
+      console.error("Unexpected data structure:", data);
+      throw new Error("Invalid response structure - no drafts array found");
+    }
+
+    // Check if drafts array is empty
+    if (data.data.drafts.length === 0) {
+      throw new Error("No drafts were generated");
     }
 
     draftSuggestions = data.data.drafts;
+    console.log("Drafts received:", draftSuggestions.length, "items");
     displayDraftCards();
     showStep(2);
 
   } catch (err) {
     console.error("Error generating drafts:", err);
-    alert("Failed to generate draft suggestions. Please try again.");
+    alert(`Failed to generate draft suggestions: ${err.message}`);
   } finally {
     // Always reset button state
     generateDraftsBtn.disabled = false;
     generateDraftsBtn.textContent = "Generate Drafts";
   }
 });
-    
 
 // ===================== DISPLAY DRAFT CARDS =====================
 function displayDraftCards() {
