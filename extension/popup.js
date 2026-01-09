@@ -25,7 +25,6 @@ const confirmBody = document.getElementById("confirmBody");
 
 // ===================== MEETING ELEMENTS =====================
 const meetingView = document.getElementById("meetingView");
-const parseMeetingCommandBtn = document.getElementById("parseMeetingCommand");
 const generateMeetingBtn = document.getElementById("generateMeeting");
 const sendMeetingInviteBtn = document.getElementById("sendMeetingInvite");
 const cancelMeetingBtn = document.getElementById("cancelMeeting");
@@ -410,81 +409,50 @@ if (document.getElementById("meetingDate")) {
 if (document.getElementById("meetingTimeType")) {
   document.getElementById("meetingTimeType").addEventListener("change", (e) => {
     const timeInput = document.getElementById("meetingTime");
+
     if (e.target.value === "instant") {
       const now = new Date();
-      timeInput.value = now.toTimeString().slice(0, 5);
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      timeInput.value = `${hh}:${mm}`;
       timeInput.disabled = true;
     } else {
       timeInput.disabled = false;
+      timeInput.value = "";
     }
   });
 }
 
-// Parse natural language command
-if (parseMeetingCommandBtn) {
-  parseMeetingCommandBtn.addEventListener("click", async () => {
-    const command = document.getElementById("meetingCommand").value.trim();
-    if (!command) {
-      alert("Please enter a meeting command");
-      return;
-    }
-
-    parseMeetingCommandBtn.disabled = true;
-    parseMeetingCommandBtn.textContent = "Parsing...";
-
-    try {
-      const response = await fetch(
-        "https://inboxai-backend-tb5j.onrender.com/meeting/parse",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ command })
-        }
-      );
-
-      if (!response.ok) throw new Error("Parse failed");
-
-      const data = await response.json();
-      const parsed = data.data;
-
-      if (parsed.recipients) {
-        document.getElementById("meetingRecipients").value = parsed.recipients.join(", ");
-      }
-      if (parsed.date) {
-        document.getElementById("meetingDate").value = parsed.date;
-      }
-      if (parsed.time) {
-        document.getElementById("meetingTime").value = parsed.time;
-      }
-      if (parsed.duration) {
-        document.getElementById("meetingDuration").value = parsed.duration;
-      }
-      if (parsed.title) {
-        document.getElementById("meetingTitle").value = parsed.title;
-      }
-
-    } catch (error) {
-      console.error(error);
-      alert("Error parsing command");
-    } finally {
-      parseMeetingCommandBtn.disabled = false;
-      parseMeetingCommandBtn.textContent = "Parse & Fill Form";
-    }
-  });
-}
 
 // Generate meeting link
 if (generateMeetingBtn) {
   generateMeetingBtn.addEventListener("click", async () => {
-    const recipients = document.getElementById("meetingRecipients").value.trim();
+    const recipientsRaw = document.getElementById("meetingRecipients").value.trim();
     const date = document.getElementById("meetingDate").value;
     const time = document.getElementById("meetingTime").value;
     const duration = Number(document.getElementById("meetingDuration").value || 30);
     const title = document.getElementById("meetingTitle").value.trim();
     const agenda = document.getElementById("meetingAgenda").value.trim();
 
-    if (!recipients || !date || !time) {
+    if (!recipientsRaw || !date || !time) {
       alert("Please fill recipients, date and time");
+      return;
+    }
+
+    // ✅ CLEAN + VALIDATE RECIPIENTS
+    const recipients = recipientsRaw
+      .split(",")
+      .map(e => e.trim())
+      .filter(Boolean);
+
+    if (recipients.length === 0) {
+      alert("Please enter at least one valid email");
+      return;
+    }
+
+    // ✅ TIME FORMAT GUARD (CRITICAL)
+    if (!/^\d{2}:\d{2}$/.test(time)) {
+      alert("Invalid time format. Please reselect the meeting time.");
       return;
     }
 
@@ -501,25 +469,35 @@ if (generateMeetingBtn) {
             title: title || "Meeting",
             date,
             time,
-            duration: Number(duration),
-            recipients: recipients.split(",").map(e => e.trim()),
+            duration,
+            recipients,
             agenda
           })
         }
       );
 
-      if (!response.ok) throw new Error("Meeting creation failed");
+      // ✅ DO NOT HIDE BACKEND ERRORS
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
 
       const data = await response.json();
+
+      if (!data?.data?.meetLink) {
+        throw new Error("Meeting created but no Meet link returned");
+      }
+
       const meetLink = data.data.meetLink;
 
       document.getElementById("generatedMeetingLink").textContent = meetLink;
       document.getElementById("meetingLinkDisplay").style.display = "block";
 
-      document.getElementById("confirmMeetingRecipients").textContent = recipients;
+      document.getElementById("confirmMeetingRecipients").textContent = recipients.join(", ");
       document.getElementById("confirmMeetingTime").textContent =
         new Date(`${date}T${time}`).toLocaleString();
-      document.getElementById("confirmMeetingDuration").textContent = `${duration} minutes`;
+      document.getElementById("confirmMeetingDuration").textContent =
+        `${duration} minutes`;
       document.getElementById("confirmMeetingLink").textContent = meetLink;
 
       document.getElementById("meetingConfirmation").style.display = "block";
@@ -527,14 +505,15 @@ if (generateMeetingBtn) {
       generatedMeetingData = data.data;
 
     } catch (err) {
-      console.error(err);
-      alert("Failed to schedule meeting");
+      console.error("Meeting scheduling failed:", err);
+      alert("Failed to schedule meeting.\n\n" + err.message);
     } finally {
       generateMeetingBtn.disabled = false;
       generateMeetingBtn.textContent = "Generate Meeting & Send Invites";
     }
   });
 }
+
 
 // Copy meeting link
 if (copyMeetingLinkBtn) {
@@ -565,9 +544,6 @@ if (cancelMeetingBtn) {
 }
 
 function resetMeetingMode() {
-  if (document.getElementById("meetingCommand")) {
-    document.getElementById("meetingCommand").value = "";
-  }
   if (document.getElementById("meetingRecipients")) {
     document.getElementById("meetingRecipients").value = "";
   }
