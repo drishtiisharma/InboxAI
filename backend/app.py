@@ -8,6 +8,7 @@ from db import init_db
 init_db()
 from fastapi.responses import JSONResponse, RedirectResponse
 import os
+from services.auth import auth_router
 
 from models import (
     CommandPayload,
@@ -16,7 +17,7 @@ from models import (
     MeetingRequest
 )
 
-from services.auth import auth_router
+
 from services.gmail_client import (
     get_gmail_service,
     send_email,
@@ -219,30 +220,10 @@ async def send_email_route(req: SendEmailRequest, request: Request):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Failed to send email")
     
+
 @app.on_event("startup")
 async def startup_event():
     print("\n=== Registered Routes ===")
     for route in app.routes:
         print(f"{route.methods} {route.path}")
     print("=======================\n")
-
-
-@app.get("/auth/google")
-async def google_login_direct():
-    """Direct route to test if auth works"""
-    return JSONResponse({
-        "message": "Auth endpoint is working!",
-        "next_step": "Click to login",
-        "url": "https://accounts.google.com/o/oauth2/auth?" + \
-               f"client_id={os.environ.get('GOOGLE_CLIENT_ID', 'test')}&" + \
-               "response_type=code&" + \
-               "scope=email%20profile%20https://www.googleapis.com/auth/gmail.modify%20https://www.googleapis.com/auth/calendar&" + \
-               "redirect_uri=https://inboxai-backend-tb5j.onrender.com/auth/google/callback&" + \
-               "access_type=offline&prompt=consent"
-    })
-
-@app.get("/auth/status")
-async def auth_status_direct(request: Request):
-    """Direct status endpoint"""
-    user = request.session.get("user")
-    return {"authenticated": bool(user), "email": user}
