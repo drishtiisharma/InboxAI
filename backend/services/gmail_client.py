@@ -1,52 +1,116 @@
 import os
 import base64
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+import re
 from googleapiclient.discovery import build
 from email.message import EmailMessage
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleRequest
+
 from ai_logic.readers.attachment_processor import (
     process_all_attachments,
     create_attachment_summary
 )
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify", 
-          "https://www.googleapis.com/auth/calendar"]
-
-
-TOKEN_FILE = "token.json"
-CREDENTIALS_FILE = "client_secret.json"
-
+# ============================ CREDENTIALS ============================
+def get_credentials_for_user(email: str):
+    """
+    Get Google credentials for a specific user using their refresh token from DB.
+    """
+    # Import here to avoid circular imports
+    from db import get_refresh_token
+    
+    refresh_token = get_refresh_token(email)
+    if not refresh_token:
+        raise Exception(f"No credentials found for user: {email}")
+    
+    # Get client ID and secret from environment
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+    
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise Exception("Google OAuth credentials not configured")
+    
+    # Create credentials from refresh token
+    creds = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        scopes=[
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "openid"
+        ]
+    )
+    
+    # Refresh token if needed
+    if creds.expired or not creds.valid:
+        try:
+            creds.refresh(GoogleRequest())
+        except Exception as e:
+            raise Exception(f"Failed to refresh credentials: {str(e)}")
+    
+    return creds
 
 # ============================ GMAIL SERVICE ============================
 
-def get_gmail_service():
-    creds = None
-
-    # Load existing token
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-
-    # If no valid credentials, force OAuth login
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not os.path.exists(CREDENTIALS_FILE):
-                raise RuntimeError("Missing client_secret.json for Gmail OAuth")
-
-            flow = InstalledAppFlow.from_client_secrets_file(
-                CREDENTIALS_FILE,
-                SCOPES
-            )
-            creds = flow.run_local_server(port=0, prompt="consent")
-
-        # Save token for future runs
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
+def get_gmail_service(creds):
+    """
+    Build Gmail service using already-authenticated credentials.
+    creds MUST be a valid google.oauth2.credentials.Credentials object.
+    """
+    if not creds:
+        raise RuntimeError("Missing Google credentials")
 
     return build("gmail", "v1", credentials=creds)
 
+# ============================ EMAIL SUMMARIZATION ============================
+
+def summarize_email(service, message_id: str):
+    """
+    Summarize a single email by its ID.
+    This function is called from app.py - MUST EXIST!
+    """
+    try:
+        msg_data = service.users().messages().get(
+            userId="me",
+            id=message_id,
+            format="full"
+        ).execute()
+
+        payload = msg_data.get("payload", {})
+        headers = payload.get("headers", [])
+
+        sender = next(
+            (h["value"] for h in headers if h["name"].lower() == "from"),
+            "Unknown"
+        )
+
+        subject = next(
+            (h["value"] for h in headers if h["name"].lower() == "subject"),
+            "No Subject"
+        )
+
+        body = extract_body(payload)
+        
+        # Clean up body - remove HTML tags
+        clean_body = re.sub(r'<[^>]+>', '', body)
+        clean_body = clean_body.replace('\r', '').replace('\n', ' ').strip()
+        
+        # Simple summary - first 150 chars
+        if len(clean_body) > 150:
+            summary = clean_body[:147] + "..."
+        else:
+            summary = clean_body
+        
+        return f"From: {sender}\nSubject: {subject}\nSummary: {summary}"
+        
+    except Exception as e:
+        print(f"Error summarizing email {message_id}: {e}")
+        return f"Error summarizing email"
 
 # ============================ BODY EXTRACTION ============================
 
@@ -79,7 +143,6 @@ def extract_body(payload):
 
     return html_body
 
-
 # ============================ ATTACHMENTS ============================
 
 def extract_attachments(payload, service, message_id, attachments_list):
@@ -111,15 +174,24 @@ def extract_attachments(payload, service, message_id, attachments_list):
         if part.get("parts"):
             extract_attachments(part, service, message_id, attachments_list)
 
+# ============================ READ UNREAD EMAILS ============================
 
-# ============================ MAIN FUNCTION ============================
-
-def get_unread_emails(max_results=10):
-    service = get_gmail_service()
+def get_unread_emails(creds, max_results=10, query: str = None):
+    """
+    Fetch unread emails for the authenticated user.
+    """
+    service = get_gmail_service(creds)
+    
+    # Build query
+    query_params = ["is:unread"]
+    if query:
+        query_params.append(query)
+    
+    full_query = " ".join(query_params)
 
     results = service.users().messages().list(
         userId="me",
-        labelIds=["UNREAD"],
+        q=full_query,
         maxResults=max_results
     ).execute()
 
@@ -157,7 +229,8 @@ def get_unread_emails(max_results=10):
                 processed = process_all_attachments(attachments)
                 attachment_text = create_attachment_summary(processed)
             except Exception as e:
-                attachment_text = f"[Error processing {len(attachments)} attachment(s)]"
+                print(f"Error processing attachments: {e}")
+                attachment_text = "[Error processing attachments]"
 
         emails.append({
             "id": msg["id"],
@@ -169,8 +242,13 @@ def get_unread_emails(max_results=10):
         })
 
     return emails
+
 # ============================ SEND EMAIL ============================
+
 def send_email(service, to: str, subject: str, body: str):
+    """
+    Send an email using an already-built Gmail service.
+    """
     message = EmailMessage()
     message.set_content(body)
 
@@ -194,48 +272,3 @@ def send_email(service, to: str, subject: str, body: str):
     )
 
     return sent_message
-
-# In gmail_client.py, update the get_google_credentials function:
-
-def get_google_credentials():
-    """Get Google credentials with Calendar scope"""
-    
-    # Define Calendar-specific scopes
-    CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
-    
-    creds = None
-    
-    # Check if token exists
-    if os.path.exists(TOKEN_FILE):
-        try:
-            # Try to load with Calendar scope
-            creds = Credentials.from_authorized_user_file(TOKEN_FILE, CALENDAR_SCOPES)
-        except Exception:
-            # Token exists but doesn't have Calendar scope - need re-auth
-            creds = None
-    
-    # If no valid Calendar credentials, force OAuth with Calendar scope
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except Exception:
-                # Refresh failed - need re-auth
-                creds = None
-    
-    if not creds:
-        # Force OAuth with Calendar scope
-        if not os.path.exists(CREDENTIALS_FILE):
-            raise RuntimeError("Missing client_secret.json for Google OAuth")
-        
-        flow = InstalledAppFlow.from_client_secrets_file(
-            CREDENTIALS_FILE,
-            CALENDAR_SCOPES  # Only Calendar scope
-        )
-        creds = flow.run_local_server(port=0, prompt="consent")
-        
-        # Save the new token
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
-    
-    return creds

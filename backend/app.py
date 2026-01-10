@@ -1,304 +1,205 @@
-import os
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Dict, Optional
-from dotenv import load_dotenv
+# app.py - Fix middleware
 import traceback
-import re
-from services.email_drafter import generate_email_drafts
-from services.gmail_client import send_email, get_gmail_service
-from services.meeting_routes import meeting_router
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+import os
+from db import init_db
+init_db()
+from fastapi.responses import JSONResponse, RedirectResponse
+import os
 
-from services.email_categorizer import get_email_category
-from services.gmail_client import get_unread_emails
-from ai_logic.email import summarize_email_logic
-from services.llm_client import intelligent_command_handler
+from models import (
+    CommandPayload,
+    SendEmailRequest,
+    DraftRequest,
+    MeetingRequest
+)
 
-load_dotenv()
+from services.auth import auth_router
+from services.gmail_client import (
+    get_gmail_service,
+    send_email,
+    get_unread_emails,
+    summarize_email,
+    get_credentials_for_user
+)
 
-app = FastAPI(title="InboxAI Backend")
-app.include_router(meeting_router)
-# ============================ CORS ============================
+
+app = FastAPI()
+from services.calendar_client import create_meeting
+from services.draft_service import generate_email_drafts
+# ===================== MIDDLEWARE =====================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "chrome-extension://*",  # Allow Chrome extensions
+        "http://localhost:*",    # For local testing
+        "https://inboxai-backend-tb5j.onrender.com"  
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ============================ MODELS ============================
-class CommandPayload(BaseModel):
-    command: str
-    history: Optional[List[Dict[str, str]]] = []
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("SESSION_SECRET", "super-secret-session-key-change-me"),
+    session_cookie="inboxai_session",
+    same_site="none",
+    https_only=True  
+)
 
-# ============================ ROOT ============================
+# ===================== ROUTERS =====================
+app.include_router(auth_router)
+
+# ===================== HEALTH =====================
 @app.get("/")
-def root():
-    return {
-        "reply": "InboxAI backend running",
-        "data": {"docs": "/docs"}
-    }
+async def health():
+    return {"status": "InboxAI backend running 🚀"}
 
-# ============================ HELPERS ============================
-def normalize(text: str) -> str:
-    return re.sub(r"[^a-z]", "", text.lower())
-
-
-def check_emails_from_sender(sender_query: str):
-    emails = get_unread_emails() or []
-    normalized_query = normalize(sender_query)
-
-    matched = [
-        email for email in emails
-        if normalized_query in normalize(email.get("from", ""))
-    ]
-
-    if not matched:
-        return {
-            "reply": f"You have no unread emails from {sender_query}.",
-            "data": None
-        }
-
-    return {
-        "reply": f"You have {len(matched)} unread email{'s' if len(matched) > 1 else ''} from {sender_query}.",
-        "data": {
-            "sender_query": sender_query,
-            "count": len(matched),
-            "emails": [
-                {
-                    "from": email.get("from"),
-                    "subject": email.get("subject", "No Subject")
-                }
-                for email in matched
-            ]
-        }
-    }
-
-
-def get_unread_emails_summary():
-    emails = get_unread_emails() or []
-
-    if not emails:
-        return {
-            "reply": "You have no unread emails.",
-            "data": None
-        }
-
-    summaries = []
-    spoken_parts = []
-
-    for idx, email in enumerate(emails, start=1):
-        sender = email.get("from", "Unknown sender")
-        subject = email.get("subject", "No Subject")
-
-        summary = summarize_email_logic(
-            body=email.get("body", ""),
-            sender=sender,
-            subject=subject,
-            attachments=email.get("attachment_text", "")
-        )
-
-        summaries.append({
-            "sender": sender,
-            "subject": subject,
-            "summary": summary
-        })
-
-        spoken_parts.append(
-            f"Email {idx} is from {sender}. {summary}"
-        )
-
-    spoken_reply = (
-        f"You have {len(summaries)} unread emails.\n\n" +
-        "\n\n".join(spoken_parts)
-    )
-
-    return {
-        "reply": spoken_reply,
-        "data": {
-            "email_count": len(summaries),
-            "summaries": summaries
-        }
-    }
-
-
-def get_last_email_summary():
-    emails = get_unread_emails(max_results=1) or []
-
-    if not emails:
-        return {
-            "reply": "You have no unread emails.",
-            "data": None
-        }
-
-    email = emails[0]
-
-    return {
-        "reply": summarize_email_logic(
-            body=email.get("body", ""),
-            sender=email.get("from", "Unknown sender"),
-            subject=email.get("subject", ""),
-            attachments=email.get("attachment_text", "")
-        ),
-        "data": {
-            "sender": email.get("from"),
-            "category": get_email_category(
-                email.get("body", ""),
-                email.get("from", ""),
-                email.get("subject", "")
-            ),
-            "has_attachments": bool(email.get("attachment_text"))
-        }
-    }
-
-
-def get_unread_email_categories():
-    emails = get_unread_emails() or []
-
-    return {
-        "reply": f"I found {len(emails)} unread emails with categories.",
-        "data": {
-            "email_count": len(emails),
-            "categories": [
-                {
-                    "sender": email.get("from", ""),
-                    "subject": email.get("subject", "No Subject"),
-                    "category": get_email_category(
-                        email.get("body", ""),
-                        email.get("from", ""),
-                        email.get("subject", "")
-                    )
-                }
-                for email in emails
-            ]
-        }
-    }
-
-def create_meeting_from_command(meeting_payload: dict):
-    """
-    meeting_payload comes from LLM:
-    {
-        title, date, time, duration, recipients, agenda
-    }
-    """
-    from services.calendar_service import create_google_meeting
-    from services.gmail_client import get_google_credentials
-
-    creds = get_google_credentials()
-
-    meeting_data = {
-        "title": meeting_payload["title"],
-        "agenda": meeting_payload.get("agenda", ""),
-        "start": f"{meeting_payload['date']}T{meeting_payload['time']}",
-        "duration": meeting_payload["duration"],
-        "recipients": meeting_payload["recipients"]
-    }
-
-    return {
-        "reply": "Meeting scheduled successfully.",
-        "data": create_google_meeting(creds, meeting_data)
-    }
-
-
-# ============================ COMMAND ROUTER ============================
+# ===================== COMMAND HANDLER =====================
 @app.post("/command")
-def handle_command(payload: CommandPayload):
+async def handle_command(payload: CommandPayload, request: Request):
     try:
-        command = payload.command.strip().lower()
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
 
-        # 🔍 RULE-BASED: sender lookup (FAST, NO LLM)
-        if ("email from" in command) or ("emails from" in command):
-            sender_query = command.split("from")[-1]
-            sender_query = re.sub(r"[^\w\s@.]", "", sender_query).strip()
+        creds = get_credentials_for_user(user_email)
+        gmail_service = get_gmail_service(creds)
 
-            if not sender_query:
-                return {
-                    "reply": "Whose emails should I check?",
-                    "data": None
-                }
+        command = payload.command.lower()
 
-            return check_emails_from_sender(sender_query)
+        if "unread" in command:
+            return get_unread_emails_summary(gmail_service)
 
-        # 🧠 LLM-BASED SAFE COMMANDS
-        function_map = {
-    "get_unread_emails_summary": get_unread_emails_summary,
-    "get_last_email_summary": get_last_email_summary,
-    "get_unread_email_categories": get_unread_email_categories,
-    "create_meeting": create_meeting_from_command
-}
+        if "last email" in command:
+            return get_last_email_summary(gmail_service)
 
-        # 🔁 FOLLOW-UP shortcut (NO LLM)
-        if command in ["summarize them", "summarize", "summarise them"]:
-            return get_unread_emails_summary()
+        if "from" in command:
+            return check_emails_from_sender(gmail_service, command)
 
+        if "schedule" in command or "meeting" in command:
+            return await create_meeting_from_command(command, request)
 
-        result = intelligent_command_handler(payload.command, function_map, payload.history)
-
-        # ✅ HARD RESPONSE NORMALIZATION (frontend expects this)
-        if isinstance(result, dict):
-            return {
-                "reply": result.get("reply", ""),
-                "data": result.get("data")
-            }
-
-        return {
-            "reply": str(result),
-            "data": None
-        }
+        return {"reply": "Sorry, I didn't understand that command."}
 
     except Exception:
         traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail="Command processing failed"
-        )
+        raise HTTPException(status_code=500, detail="Command processing failed")
 
-class DraftEmailRequest(BaseModel):
-    intent: str
-    receiver: str
-    tone: str
-    context: Optional[str] = ""
-
-class SendEmailRequest(BaseModel):
-    to: str
-    subject: str
-    body: str
-
-# ============================ DIRECT ROUTES ============================
-@app.post("/summarize/unread")
-def summarize_unread_emails():
-    try:
-        return get_unread_emails_summary()
-    except Exception:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to summarize unread emails"
-        )
-
+# ===================== EMAIL DRAFT =====================
 @app.post("/email/draft")
-def draft_email(req: DraftEmailRequest):
-    drafts = generate_email_drafts(
-        req.intent,
-        req.receiver,
-        req.tone,
-        req.context
+async def draft_email(payload: DraftRequest, request: Request):
+    try:
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Generate drafts using AI
+        drafts = generate_email_drafts(
+            intent=payload.intent,
+            receiver=payload.receiver,
+            tone=payload.tone,
+            context=payload.context
+        )
+        
+        return {
+            "data": {
+                "drafts": drafts
+            }
+        }
+        
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to generate drafts")
+
+# ===================== CREATE MEETING =====================
+@app.post("/meeting/create")
+async def create_meeting_route(payload: MeetingRequest, request: Request):
+    try:
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        creds = get_credentials_for_user(user_email)
+        
+        meet_link = create_meeting(
+            creds=creds,
+            title=payload.title,
+            recipients=payload.recipients,
+            date=payload.date,
+            time=payload.time,
+            duration=payload.duration,
+            agenda=payload.agenda
+        )
+        
+        return {
+            "data": {
+                "meet_link": meet_link
+            }
+        }
+        
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to create meeting")
+
+# ===================== EMAIL HELPERS =====================
+# ===================== EMAIL HELPERS =====================
+def get_unread_emails_summary(creds):  # CHANGE: accept creds, not service
+    emails = get_unread_emails(creds)  # CHANGE: pass creds
+    if not emails:
+        return {"reply": "No unread emails 🎉"}
+
+    service = get_gmail_service(creds)  # ADD: get service from creds
+    summaries = [summarize_email(service, e["id"]) for e in emails[:3]]
+    return {"reply": "\n\n".join(summaries)}
+
+def get_last_email_summary(creds):  # CHANGE: accept creds
+    emails = get_unread_emails(creds, max_results=1)  # CHANGE: pass creds
+    if not emails:
+        return {"reply": "No emails found."}
+
+    service = get_gmail_service(creds)  # ADD: get service
+    summary = summarize_email(service, emails[0]["id"])
+    return {"reply": summary}
+
+def check_emails_from_sender(creds, command: str):  # CHANGE: accept creds
+    sender = command.split("from")[-1].strip()
+    emails = get_unread_emails(creds, query=f"from:{sender}")  # CHANGE: pass creds
+
+    if not emails:
+        return {"reply": f"No unread emails from {sender}."}
+
+    return {"reply": f"You have {len(emails)} unread emails from {sender}."}
+
+# ===================== MEETING =====================
+async def create_meeting_from_command(command: str, request: Request):
+    user_email = request.session.get("user")
+    creds = get_credentials_for_user(user_email)
+
+    meet_link = create_meeting(
+        creds=creds,
+        summary="Meeting via InboxAI",
+        description=command
     )
 
     return {
-        "reply": "Here are some draft options.",
-        "data": {
-            "drafts": drafts
-        }
+        "reply": "Meeting created successfully.",
+        "meet_link": meet_link
     }
 
-
+# ===================== SEND EMAIL =====================
 @app.post("/email/send")
-def send_email_route(req: SendEmailRequest):
+async def send_email_route(req: SendEmailRequest, request: Request):
     try:
-        service = get_gmail_service()
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        creds = get_credentials_for_user(user_email)
+        service = get_gmail_service(creds)
 
         result = send_email(
             service=service,
@@ -316,20 +217,32 @@ def send_email_route(req: SendEmailRequest):
 
     except Exception:
         traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to send email"
-        )
-@app.get("/check-scopes")
-def check_scopes():
-    if os.path.exists("token.json"):
-        with open("token.json", "r") as f:
-            import json
-            token_data = json.load(f)
-            scopes = token_data.get("scopes", [])
-            return {
-                "has_gmail_scope": "https://www.googleapis.com/auth/gmail.modify" in scopes,
-                "has_calendar_scope": "https://www.googleapis.com/auth/calendar" in scopes,
-                "scopes": scopes
-            }
-    return {"error": "No token.json found"}
+        raise HTTPException(status_code=500, detail="Failed to send email")
+    
+@app.on_event("startup")
+async def startup_event():
+    print("\n=== Registered Routes ===")
+    for route in app.routes:
+        print(f"{route.methods} {route.path}")
+    print("=======================\n")
+
+
+@app.get("/auth/google")
+async def google_login_direct():
+    """Direct route to test if auth works"""
+    return JSONResponse({
+        "message": "Auth endpoint is working!",
+        "next_step": "Click to login",
+        "url": "https://accounts.google.com/o/oauth2/auth?" + \
+               f"client_id={os.environ.get('GOOGLE_CLIENT_ID', 'test')}&" + \
+               "response_type=code&" + \
+               "scope=email%20profile%20https://www.googleapis.com/auth/gmail.modify%20https://www.googleapis.com/auth/calendar&" + \
+               "redirect_uri=https://inboxai-backend-tb5j.onrender.com/auth/google/callback&" + \
+               "access_type=offline&prompt=consent"
+    })
+
+@app.get("/auth/status")
+async def auth_status_direct(request: Request):
+    """Direct status endpoint"""
+    user = request.session.get("user")
+    return {"authenticated": bool(user), "email": user}

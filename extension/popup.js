@@ -7,6 +7,9 @@ const sendBtn = document.getElementById("send");
 const chatMessages = document.getElementById("chatMessages");
 const themeToggle = document.getElementById("themeToggle");
 const body = document.body;
+const loginBtn = document.getElementById("loginWithGoogle");
+const logoutBtn = document.getElementById("logout");
+const userStatus = document.getElementById("userStatus");
 
 // ===================== EMAIL DRAFT ELEMENTS =====================
 const inputForm = document.getElementById("inputForm");
@@ -41,54 +44,167 @@ let selectedDraftIndex = null;
 let generatedMeetingData = null;
 let voices = [];
 let speechUnlocked = false;
+let isGenerating = false;
+let currentUser = null;
+
+// ===================== BACKEND URL =====================
+const BACKEND_URL = "https://inboxai-backend-tb5j.onrender.com";
+
+// ===================== AUTH FUNCTIONS =====================
+async function checkAuthStatus() {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/status`, {
+      method: "GET",
+      credentials: "include"
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.logged_in && data.user) {
+        currentUser = data.user;
+        updateUIForLoggedInUser();
+      } else {
+        currentUser = null;
+        updateUIForLoggedOutUser();
+      }
+    } else {
+      currentUser = null;
+      updateUIForLoggedOutUser();
+    }
+  } catch (error) {
+    console.error("Auth check failed:", error);
+    currentUser = null;
+    updateUIForLoggedOutUser();
+  }
+}
+
+function updateUIForLoggedInUser() {
+  if (loginBtn) loginBtn.style.display = "none";
+  if (logoutBtn) logoutBtn.style.display = "block";
+  if (userStatus) {
+    userStatus.textContent = `Logged in as: ${currentUser}`;
+    userStatus.style.display = "block";
+  }
+  
+  // Enable all action buttons
+  const actionButtons = [sendBtn, generateDraftsBtn, generateMeetingBtn];
+  actionButtons.forEach(btn => {
+    if (btn) btn.disabled = false;
+  });
+}
+
+function updateUIForLoggedOutUser() {
+  if (loginBtn) loginBtn.style.display = "block";
+  if (logoutBtn) logoutBtn.style.display = "none";
+  if (userStatus) userStatus.style.display = "none";
+  
+  // Disable action buttons requiring auth
+  const actionButtons = [generateDraftsBtn, generateMeetingBtn];
+  actionButtons.forEach(btn => {
+    if (btn) btn.disabled = true;
+  });
+}
+
+// ===================== LOGIN/LOGOUT HANDLERS =====================
+if (loginBtn) {
+  loginBtn.addEventListener("click", () => {
+    window.open(`${BACKEND_URL}/auth/google`, "_blank");
+    
+    // Check auth status after a short delay to allow login to complete
+    setTimeout(() => {
+      checkAuthStatus();
+    }, 2000);
+  });
+}
+
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include"
+      });
+
+      if (response.ok) {
+        currentUser = null;
+        updateUIForLoggedOutUser();
+        alert("Logged out successfully");
+      }
+    } catch (error) {
+      console.error("Logout failed:", error);
+      alert("Logout failed. Please try again.");
+    }
+  });
+}
 
 // ===================== THEME =====================
 const savedTheme = localStorage.getItem("theme") || "light";
 if (savedTheme === "dark") body.classList.add("dark");
 
-themeToggle.addEventListener("click", () => {
-  body.classList.toggle("dark");
-  localStorage.setItem(
-    "theme",
-    body.classList.contains("dark") ? "dark" : "light"
-  );
-});
+if (themeToggle) {
+  themeToggle.addEventListener("click", () => {
+    body.classList.toggle("dark");
+    localStorage.setItem(
+      "theme",
+      body.classList.contains("dark") ? "dark" : "light"
+    );
+  });
+}
 
 // ===================== SPEECH =====================
 function loadVoices() {
   voices = window.speechSynthesis.getVoices();
 }
-window.speechSynthesis.onvoiceschanged = loadVoices;
-loadVoices();
 
-document.addEventListener(
-  "click",
-  () => {
-    if (!speechUnlocked) {
-      const unlock = new SpeechSynthesisUtterance(" ");
-      unlock.volume = 0;
-      speechSynthesis.speak(unlock);
-      speechUnlocked = true;
-      speak(greetingText);
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  loadVoices();
+  
+  // Speech unlock on user interaction
+  const unlockSpeech = () => {
+    if (!speechUnlocked && speechSynthesis) {
+      try {
+        const unlock = new SpeechSynthesisUtterance(" ");
+        unlock.volume = 0;
+        speechSynthesis.speak(unlock);
+        speechUnlocked = true;
+        if (!greetingSpoken) {
+          speak(greetingText);
+        }
+      } catch (error) {
+        console.error("Speech synthesis initialization failed:", error);
+        speechUnlocked = false;
+      }
     }
-  },
-  { once: true }
-);
+  };
+  
+  // Multiple interaction types to unlock speech
+  document.addEventListener('click', unlockSpeech, { once: true });
+  document.addEventListener('keydown', unlockSpeech, { once: true });
+  document.addEventListener('touchstart', unlockSpeech, { once: true });
+}
 
 function speak(text) {
-  if (!speechUnlocked || !text.trim()) return;
+  if (!speechUnlocked || !text.trim() || !window.speechSynthesis) return;
+  
+  try {
+    speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
 
-  speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
+    const voice =
+      voices.find(v => v.lang === "en-US") ||
+      voices.find(v => v.lang.startsWith("en")) ||
+      voices[0];
 
-  const voice =
-    voices.find(v => v.lang === "en-US") ||
-    voices.find(v => v.lang.startsWith("en")) ||
-    voices[0];
-
-  if (voice) utterance.voice = voice;
-  speechSynthesis.speak(utterance);
+    if (voice) utterance.voice = voice;
+    speechSynthesis.speak(utterance);
+  } catch (error) {
+    console.error("Speech failed:", error);
+  }
 }
 
 // ===================== CHAT HELPERS =====================
@@ -146,9 +262,15 @@ function switchMode(mode) {
   } else if (mode === "draft") {
     draftView.style.display = "block";
     showStep(1);
+    if (!currentUser) {
+      alert("Please log in to use email drafting feature.");
+    }
   } else if (mode === "meeting") {
     meetingView.style.display = "block";
     resetMeetingMode();
+    if (!currentUser) {
+      alert("Please log in to schedule meetings.");
+    }
   }
 }
 
@@ -181,55 +303,72 @@ function showStep(stepNumber) {
 }
 
 // ===================== GENERATE DRAFTS =====================
-generateDraftsBtn.addEventListener("click", async () => {
-  const recipient = recipientEmail.value.trim();
-  const intent = emailIntent.value.trim();
+if (generateDraftsBtn) {
+  generateDraftsBtn.addEventListener("click", async () => {
+    // Check authentication
+    if (!currentUser) {
+      alert("Please log in to generate email drafts.");
+      return;
+    }
 
-  if (!recipient || !intent) {
-    alert("Please fill in both recipient and email intent");
-    return;
-  }
+    const recipient = recipientEmail.value.trim();
+    const intent = emailIntent.value.trim();
 
-  generateDraftsBtn.disabled = true;
-  generateDraftsBtn.textContent = "Generating...";
+    if (!recipient || !intent) {
+      alert("Please fill in both recipient and email intent");
+      return;
+    }
 
-  try {
-    const response = await fetch(
-      "https://inboxai-backend-tb5j.onrender.com/email/draft",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          intent: intent,
-          receiver: recipient,
-          tone: "professional",
-          context: ""
-        })
+    generateDraftsBtn.disabled = true;
+    generateDraftsBtn.textContent = "Generating...";
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/email/draft`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            intent: intent,
+            receiver: recipient,
+            tone: "professional",
+            context: ""
+          }),
+          credentials: "include" // CRITICAL: Send cookies for user identification
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication required. Please log in.");
+        }
+        throw new Error(`Draft generation failed: ${response.status}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Draft generation failed: ${response.status}`);
+      const data = await response.json();
+      
+      if (!data.data || !data.data.drafts || !Array.isArray(data.data.drafts)) {
+        throw new Error("Invalid response structure");
+      }
+
+      draftSuggestions = data.data.drafts;
+      displayDraftCards();
+      showStep(2);
+
+    } catch (err) {
+      console.error("Error generating drafts:", err);
+      alert(err.message || "Failed to generate draft suggestions. Please try again.");
+      
+      // If auth error, update UI
+      if (err.message.includes("Authentication")) {
+        checkAuthStatus();
+      }
+    } finally {
+      generateDraftsBtn.disabled = false;
+      generateDraftsBtn.textContent = "Generate Draft Suggestions";
     }
-
-    const data = await response.json();
-    
-    if (!data.data || !data.data.drafts || !Array.isArray(data.data.drafts)) {
-      throw new Error("Invalid response structure");
-    }
-
-    draftSuggestions = data.data.drafts;
-    displayDraftCards();
-    showStep(2);
-
-  } catch (err) {
-    console.error("Error generating drafts:", err);
-    alert("Failed to generate draft suggestions. Please try again.");
-  } finally {
-    generateDraftsBtn.disabled = false;
-    generateDraftsBtn.textContent = "Generate Draft Suggestions";
-  }
-});
+  });
+}
 
 // ===================== DISPLAY DRAFT CARDS =====================
 function displayDraftCards() {
@@ -261,83 +400,104 @@ function selectDraft(index) {
   const cards = draftCards.children;
   cards[index].classList.add("selected");
   selectedDraftIndex = index;
-  confirmSelectionBtn.disabled = false;
+  if (confirmSelectionBtn) confirmSelectionBtn.disabled = false;
 }
 
 // ===================== CONFIRM SELECTION =====================
-confirmSelectionBtn.addEventListener("click", () => {
-  if (selectedDraftIndex === null) {
-    alert("Please select a draft");
-    return;
-  }
-
-  const selectedDraft = draftSuggestions[selectedDraftIndex];
-  const recipient = recipientEmail.value.trim();
-
-  confirmRecipient.textContent = recipient;
-  confirmSubject.textContent = selectedDraft.subject;
-  confirmBody.textContent = selectedDraft.body;
-
-  showStep(3);
-});
-
-// ===================== SEND EMAIL =====================
-sendEmailBtn.addEventListener("click", async () => {
-  if (selectedDraftIndex === null) {
-    alert("Please select a draft first");
-    return;
-  }
-
-  const selectedDraft = draftSuggestions[selectedDraftIndex];
-  const recipient = recipientEmail.value.trim();
-
-  if (!recipient) {
-    alert("Recipient email is missing");
-    return;
-  }
-
-  sendEmailBtn.disabled = true;
-  sendEmailBtn.textContent = "Sending...";
-
-  try {
-    const response = await fetch(
-      "https://inboxai-backend-tb5j.onrender.com/email/send",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: recipient,
-          subject: selectedDraft.subject,
-          body: selectedDraft.body
-        })
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Email send failed");
+if (confirmSelectionBtn) {
+  confirmSelectionBtn.addEventListener("click", () => {
+    if (selectedDraftIndex === null) {
+      alert("Please select a draft");
+      return;
     }
 
-    alert(`Email sent successfully to ${recipient}`);
+    const selectedDraft = draftSuggestions[selectedDraftIndex];
+    const recipient = recipientEmail.value.trim();
 
-    recipientEmail.value = "";
-    emailIntent.value = "";
-    draftSuggestions = [];
-    selectedDraftIndex = null;
-    showStep(1);
+    confirmRecipient.textContent = recipient;
+    confirmSubject.textContent = selectedDraft.subject;
+    confirmBody.textContent = selectedDraft.body;
 
-  } catch (err) {
-    console.error(err);
-    alert("Failed to send email.");
-  } finally {
-    sendEmailBtn.disabled = false;
-    sendEmailBtn.textContent = "Send Email";
-  }
-});
+    showStep(3);
+  });
+}
+
+// ===================== SEND EMAIL =====================
+if (sendEmailBtn) {
+  sendEmailBtn.addEventListener("click", async () => {
+    // Check authentication
+    if (!currentUser) {
+      alert("Please log in to send emails.");
+      return;
+    }
+
+    if (selectedDraftIndex === null) {
+      alert("Please select a draft first");
+      return;
+    }
+
+    const selectedDraft = draftSuggestions[selectedDraftIndex];
+    const recipient = recipientEmail.value.trim();
+
+    if (!recipient) {
+      alert("Recipient email is missing");
+      return;
+    }
+
+    sendEmailBtn.disabled = true;
+    sendEmailBtn.textContent = "Sending...";
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/email/send`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: recipient,
+            subject: selectedDraft.subject,
+            body: selectedDraft.body
+          }),
+          credentials: "include" // CRITICAL: Send cookies for user identification
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication required. Please log in.");
+        }
+        throw new Error("Email send failed");
+      }
+
+      alert(`Email sent successfully to ${recipient}`);
+
+      recipientEmail.value = "";
+      emailIntent.value = "";
+      draftSuggestions = [];
+      selectedDraftIndex = null;
+      showStep(1);
+
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Failed to send email.");
+      
+      // If auth error, update UI
+      if (err.message.includes("Authentication")) {
+        checkAuthStatus();
+      }
+    } finally {
+      sendEmailBtn.disabled = false;
+      sendEmailBtn.textContent = "Send Email";
+    }
+  });
+}
 
 // ===================== CANCEL SEND =====================
-cancelSendBtn.addEventListener("click", () => {
-  showStep(2);
-});
+if (cancelSendBtn) {
+  cancelSendBtn.addEventListener("click", () => {
+    showStep(2);
+  });
+}
 
 // ===================== SEND COMMAND =====================
 async function sendCommand() {
@@ -352,20 +512,24 @@ async function sendCommand() {
 
   try {
     const res = await fetch(
-      "https://inboxai-backend-tb5j.onrender.com/command",
+      `${BACKEND_URL}/command`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           command,
           history: trimmedHistory
-        })
+        }),
+        credentials: "include" // CRITICAL: Send cookies for user identification
       }
     );
 
     conversationHistory.push({ role: "user", content: command });
 
     if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error("Authentication required. Please log in.");
+      }
       throw new Error(`HTTP ${res.status}`);
     }
 
@@ -383,7 +547,13 @@ async function sendCommand() {
   } catch (err) {
     removeThinking();
     console.error(err);
-    addMessage("Backend error. Check console.", "bot");
+    
+    if (err.message.includes("Authentication")) {
+      addMessage("Please log in to use chat features.", "bot");
+      checkAuthStatus();
+    } else {
+      addMessage("Backend error. Check console.", "bot");
+    }
   }
 }
 
@@ -423,10 +593,15 @@ if (document.getElementById("meetingTimeType")) {
   });
 }
 
-
 // Generate meeting link
 if (generateMeetingBtn) {
   generateMeetingBtn.addEventListener("click", async () => {
+    // Check authentication
+    if (!currentUser) {
+      alert("Please log in to schedule meetings.");
+      return;
+    }
+
     const recipientsRaw = document.getElementById("meetingRecipients").value.trim();
     const date = document.getElementById("meetingDate").value;
     const time = document.getElementById("meetingTime").value;
@@ -461,7 +636,7 @@ if (generateMeetingBtn) {
 
     try {
       const response = await fetch(
-        "https://inboxai-backend-tb5j.onrender.com/meeting/create",
+        `${BACKEND_URL}/meeting/create`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -472,12 +647,15 @@ if (generateMeetingBtn) {
             duration,
             recipients,
             agenda
-          })
+          }),
+          credentials: "include" // CRITICAL: Send cookies for user identification
         }
       );
 
-      // ✅ DO NOT HIDE BACKEND ERRORS
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication required. Please log in.");
+        }
         const errorText = await response.text();
         throw new Error(errorText);
       }
@@ -506,14 +684,18 @@ if (generateMeetingBtn) {
 
     } catch (err) {
       console.error("Meeting scheduling failed:", err);
-      alert("Failed to schedule meeting.\n\n" + err.message);
+      alert(err.message || "Failed to schedule meeting.");
+      
+      // If auth error, update UI
+      if (err.message.includes("Authentication")) {
+        checkAuthStatus();
+      }
     } finally {
       generateMeetingBtn.disabled = false;
       generateMeetingBtn.textContent = "Generate Meeting & Send Invites";
     }
   });
 }
-
 
 // Copy meeting link
 if (copyMeetingLinkBtn) {
@@ -532,9 +714,13 @@ if (copyMeetingLinkBtn) {
 
 // Send meeting invites
 if (sendMeetingInviteBtn) {
-  sendMeetingInviteBtn.addEventListener("click", () => {
-    alert("Meeting invites sent successfully!");
-    resetMeetingMode();
+  sendMeetingInviteBtn.addEventListener("click", async () => {
+    try {
+      alert("Meeting invites sent successfully!");
+      resetMeetingMode();
+    } catch (error) {
+      console.error("Error sending invites:", error);
+    }
   });
 }
 
@@ -578,4 +764,16 @@ function resetMeetingMode() {
 }
 
 // ===================== INITIALIZATION =====================
-switchMode("chat");
+async function initializeApp() {
+  // Check auth status on startup
+  await checkAuthStatus();
+  
+  // Set up periodic auth checks
+  setInterval(checkAuthStatus, 30000); // Check every 30 seconds
+  
+  // Start with chat mode
+  switchMode("chat");
+}
+
+// Start the app
+initializeApp();
