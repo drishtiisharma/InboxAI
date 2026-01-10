@@ -108,14 +108,14 @@ function updateUIForLoggedOutUser() {
 // ===================== LOGIN/LOGOUT HANDLERS =====================
 if (loginBtn) {
   loginBtn.addEventListener("click", () => {
-    window.open(`${BACKEND_URL}/auth/google`, "_blank");
     
-    // Check auth status after a short delay to allow login to complete
-    setTimeout(() => {
-      checkAuthStatus();
-    }, 2000);
+    chrome.tabs.create({
+      url: `${BACKEND_URL}/auth/google`
+    });
+    
   });
 }
+
 
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {

@@ -38,7 +38,7 @@ async def google_login(request: Request):
     )
     
     request.session["oauth_state"] = state
-    return JSONResponse({"url": auth_url})
+    return RedirectResponse(url=auth_url)  
 
 @auth_router.get("/google/callback")
 async def google_callback(request: Request, code: str = None, state: str = None, error: str = None):

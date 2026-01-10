@@ -26,21 +26,17 @@ from services.gmail_client import (
     get_credentials_for_user
 )
 
-
 app = FastAPI()
 from services.calendar_client import create_meeting
 from services.draft_service import generate_email_drafts
 # ===================== MIDDLEWARE =====================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "chrome-extension://*",  # Allow Chrome extensions
-        "http://localhost:*",    # For local testing
-        "https://inboxai-backend-tb5j.onrender.com"  
-    ],
+    allow_origins=["*"],  # Allow ALL origins for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Add this line
 )
 
 app.add_middleware(
