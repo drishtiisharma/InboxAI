@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 import os
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from db import init_db
 init_db()
 
@@ -222,3 +224,13 @@ async def startup_event():
     for route in app.routes:
         print(f"{route.methods} {route.path}")
     print("=======================\n")
+
+@app.post("/auth/logout")
+def logout(request: Request):
+    response = JSONResponse({"success": True})
+    
+    # If you are using cookies for session
+    response.delete_cookie("session")
+    response.delete_cookie("user")
+
+    return response

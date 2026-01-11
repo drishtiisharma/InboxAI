@@ -11,7 +11,7 @@ const loginBtn = document.getElementById("loginWithGoogle");
 const userStatus = document.getElementById("userStatus");
 const loginView = document.getElementById("loginView");
 const appView = document.getElementById("appView");
-
+const logoutBtn = document.getElementById("logout");
 
 // ===================== EMAIL DRAFT ELEMENTS =====================
 const inputForm = document.getElementById("inputForm");
@@ -782,5 +782,26 @@ async function initializeApp() {
   switchMode("chat");
 }
 
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await fetch("https://YOUR_RENDER_URL/auth/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+
+      // Reset UI
+      currentUser = null;
+      updateUIForLoggedOutUser();
+
+      // Switch views
+      document.getElementById("appView").style.display = "none";
+      document.getElementById("loginView").style.display = "flex";
+
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+  });
+}
 // Start the app
 initializeApp();
