@@ -9,6 +9,9 @@ const themeToggle = document.getElementById("themeToggle");
 const body = document.body;
 const loginBtn = document.getElementById("loginWithGoogle");
 const userStatus = document.getElementById("userStatus");
+const loginView = document.getElementById("loginView");
+const appView = document.getElementById("appView");
+
 
 // ===================== EMAIL DRAFT ELEMENTS =====================
 const inputForm = document.getElementById("inputForm");
@@ -80,18 +83,46 @@ async function checkAuthStatus() {
 
 
 function updateUIForLoggedInUser() {
+  // Switch views
+  if (loginView) loginView.style.display = "none";
+  if (appView) appView.style.display = "block";
+
+  // Hide login buttons
   if (loginBtn) loginBtn.style.display = "none";
 
+  const loginBtn2 = document.getElementById("loginWithGoogle2");
+  if (loginBtn2) loginBtn2.style.display = "none";
+
+  // Show user info
   if (userStatus) {
     userStatus.textContent = `Logged in as: ${currentUser}`;
     userStatus.style.display = "block";
   }
 
-  const actionButtons = [sendBtn, generateDraftsBtn, generateMeetingBtn];
-  actionButtons.forEach(btn => {
+  // Enable actions
+  [sendBtn, generateDraftsBtn, generateMeetingBtn].forEach(btn => {
     if (btn) btn.disabled = false;
   });
 }
+
+function updateUIForLoggedOutUser() {
+  currentUser = null;
+
+  if (loginView) loginView.style.display = "flex";
+  if (appView) appView.style.display = "none";
+
+  if (loginBtn) loginBtn.style.display = "block";
+
+  if (userStatus) {
+    userStatus.textContent = "";
+    userStatus.style.display = "none";
+  }
+
+  [sendBtn, generateDraftsBtn, generateMeetingBtn].forEach(btn => {
+    if (btn) btn.disabled = true;
+  });
+}
+
 
   // Enable all action buttons
   const actionButtons = [sendBtn, generateDraftsBtn, generateMeetingBtn];
