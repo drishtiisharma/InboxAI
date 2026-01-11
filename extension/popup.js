@@ -55,13 +55,16 @@ async function checkAuthStatus() {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/status`, {
       method: "GET",
-      credentials: "include"
+      credentials: "include",
+      headers: {
+        "Origin": window.location.origin  // Send origin header
+      }
     });
 
     if (response.ok) {
       const data = await response.json();
-      if (data.logged_in && data.user) {
-        currentUser = data.user;
+      if (data.authenticated && data.email) {  
+        currentUser = data.email;
         updateUIForLoggedInUser();
       } else {
         currentUser = null;
@@ -762,6 +765,7 @@ function resetMeetingMode() {
   
   generatedMeetingData = null;
 }
+
 
 // ===================== INITIALIZATION =====================
 async function initializeApp() {

@@ -6,8 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import os
 from db import init_db
 init_db()
-from fastapi.responses import JSONResponse, RedirectResponse
-import os
+
 from services.auth import auth_router
 
 from models import (
@@ -47,6 +46,7 @@ app.add_middleware(
     https_only=True  
 )
 
+
 # ===================== ROUTERS =====================
 app.include_router(auth_router)
 
@@ -69,13 +69,13 @@ async def handle_command(payload: CommandPayload, request: Request):
         command = payload.command.lower()
 
         if "unread" in command:
-            return get_unread_emails_summary(gmail_service)
+            return get_unread_emails_summary(creds)
 
         if "last email" in command:
-            return get_last_email_summary(gmail_service)
+            return get_last_email_summary(creds)
 
         if "from" in command:
-            return check_emails_from_sender(gmail_service, command)
+            return check_emails_from_sender(creds, command)
 
         if "schedule" in command or "meeting" in command:
             return await create_meeting_from_command(command, request)
@@ -143,28 +143,27 @@ async def create_meeting_route(payload: MeetingRequest, request: Request):
         raise HTTPException(status_code=500, detail="Failed to create meeting")
 
 # ===================== EMAIL HELPERS =====================
-# ===================== EMAIL HELPERS =====================
-def get_unread_emails_summary(creds):  # CHANGE: accept creds, not service
-    emails = get_unread_emails(creds)  # CHANGE: pass creds
+def get_unread_emails_summary(creds): 
+    emails = get_unread_emails(creds)  
     if not emails:
         return {"reply": "No unread emails 🎉"}
 
-    service = get_gmail_service(creds)  # ADD: get service from creds
+    service = get_gmail_service(creds)  
     summaries = [summarize_email(service, e["id"]) for e in emails[:3]]
     return {"reply": "\n\n".join(summaries)}
 
-def get_last_email_summary(creds):  # CHANGE: accept creds
-    emails = get_unread_emails(creds, max_results=1)  # CHANGE: pass creds
+def get_last_email_summary(creds):  
+    emails = get_unread_emails(creds, max_results=1)  
     if not emails:
         return {"reply": "No emails found."}
 
-    service = get_gmail_service(creds)  # ADD: get service
+    service = get_gmail_service(creds)  
     summary = summarize_email(service, emails[0]["id"])
     return {"reply": summary}
 
-def check_emails_from_sender(creds, command: str):  # CHANGE: accept creds
+def check_emails_from_sender(creds, command: str): 
     sender = command.split("from")[-1].strip()
-    emails = get_unread_emails(creds, query=f"from:{sender}")  # CHANGE: pass creds
+    emails = get_unread_emails(creds, query=f"from:{sender}") 
 
     if not emails:
         return {"reply": f"No unread emails from {sender}."}
