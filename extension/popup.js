@@ -95,18 +95,6 @@ function updateUIForLoggedInUser() {
   });
 }
 
-function updateUIForLoggedOutUser() {
-  if (loginBtn) loginBtn.style.display = "block";
-  if (logoutBtn) logoutBtn.style.display = "none";
-  if (userStatus) userStatus.style.display = "none";
-  
-  // Disable action buttons requiring auth
-  const actionButtons = [generateDraftsBtn, generateMeetingBtn];
-  actionButtons.forEach(btn => {
-    if (btn) btn.disabled = true;
-  });
-}
-
 // ===================== LOGIN/LOGOUT HANDLERS =====================
 if (loginBtn) {
   loginBtn.addEventListener("click", () => {
@@ -118,26 +106,6 @@ if (loginBtn) {
   });
 }
 
-
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/auth/logout`, {
-        method: "POST",
-        credentials: "include"
-      });
-
-      if (response.ok) {
-        currentUser = null;
-        updateUIForLoggedOutUser();
-        alert("Logged out successfully");
-      }
-    } catch (error) {
-      console.error("Logout failed:", error);
-      alert("Logout failed. Please try again.");
-    }
-  });
-}
 
 // ===================== THEME =====================
 const savedTheme = localStorage.getItem("theme") || "light";
