@@ -55,10 +55,8 @@ async function checkAuthStatus() {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/status`, {
       method: "GET",
-      credentials: "include",
-      headers: {
-        "Origin": window.location.origin  // Send origin header
-      }
+      credentials: "include"
+      // REMOVE the Origin header - let browser set it automatically
     });
 
     if (response.ok) {
@@ -80,6 +78,7 @@ async function checkAuthStatus() {
     updateUIForLoggedOutUser();
   }
 }
+
 
 function updateUIForLoggedInUser() {
   if (loginBtn) loginBtn.style.display = "none";
