@@ -8,7 +8,6 @@ const chatMessages = document.getElementById("chatMessages");
 const themeToggle = document.getElementById("themeToggle");
 const body = document.body;
 const loginBtn = document.getElementById("loginWithGoogle");
-const logoutBtn = document.getElementById("logout");
 const userStatus = document.getElementById("userStatus");
 
 // ===================== EMAIL DRAFT ELEMENTS =====================
@@ -82,18 +81,24 @@ async function checkAuthStatus() {
 
 function updateUIForLoggedInUser() {
   if (loginBtn) loginBtn.style.display = "none";
-  if (logoutBtn) logoutBtn.style.display = "block";
+
   if (userStatus) {
     userStatus.textContent = `Logged in as: ${currentUser}`;
     userStatus.style.display = "block";
   }
-  
-  // Enable all action buttons
+
   const actionButtons = [sendBtn, generateDraftsBtn, generateMeetingBtn];
   actionButtons.forEach(btn => {
     if (btn) btn.disabled = false;
   });
 }
+
+  // Enable all action buttons
+  const actionButtons = [sendBtn, generateDraftsBtn, generateMeetingBtn];
+  actionButtons.forEach(btn => {
+    if (btn) btn.disabled = false;
+  });
+
 
 // ===================== LOGIN/LOGOUT HANDLERS =====================
 if (loginBtn) {
