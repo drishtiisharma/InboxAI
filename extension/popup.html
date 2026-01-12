@@ -3,7 +3,6 @@
 <head>
   <title>InboxAI</title>
   <style>
-    /* ===================== RESET ===================== */
     * {
       margin: 0;
       padding: 0;
@@ -30,7 +29,7 @@
       background: #ffffff;
       border-radius: 24px;
       box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-      padding: 35px 30px;
+      padding: 60px 30px 35px;
       width: 480px;
       max-width: 100%;
       position: relative;
@@ -41,6 +40,81 @@
       background: #1e293b;
       box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
     }
+
+    /* ===================== THEME TOGGLE ===================== */
+/* ===================== THEME TOGGLE ===================== */
+.theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+body.dark .theme-toggle {
+  background: #334155;
+  border-color: #475569;
+}
+
+body.dark .theme-toggle:hover {
+  background: #475569;
+}
+
+/* SVG icons inside theme toggle */
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+  transition: all 0.3s ease;
+}
+
+/* Sun icon - FIXED: Ensure it's visible and properly sized */
+.sun-icon {
+  position: absolute;
+  fill: #f59e0b;
+  stroke: #f59e0b;
+  stroke-width: 1.5;
+  width: 20px;
+  height: 20px;
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Moon icon - FIXED: Ensure proper positioning */
+.moon-icon {
+  position: absolute;
+  fill: #e2e8f0;
+  stroke: #e2e8f0;
+  stroke-width: 1.5;
+  width: 20px;
+  height: 20px;
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+/* When dark mode is active - FIXED: Proper transitions */
+body.dark .sun-icon {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+body.dark .moon-icon {
+  opacity: 1;
+  transform: scale(1);
+}
 
     h3 {
       background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
@@ -512,14 +586,31 @@
       border-color: #334155;
       color: #cbd5e1;
     }
-
-
   </style>
 </head>
 
 <body>
   <div class="container">
-    
+    <!-- Theme Toggle Button - Small and Round in Top Right -->
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+      <!-- Sun icon -->
+      <svg class="sun-icon" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </svg>
+
+      <!-- Moon icon -->
+      <svg class="moon-icon" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    </button>
     
     <h3>InboxAI</h3>
 
