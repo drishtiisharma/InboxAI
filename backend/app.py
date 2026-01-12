@@ -229,7 +229,6 @@ async def startup_event():
 def logout(request: Request):
     response = JSONResponse({"success": True})
     
-    # If you are using cookies for session
     response.delete_cookie("session")
     response.delete_cookie("user")
 

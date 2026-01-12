@@ -58,7 +58,7 @@ async function checkAuthStatus() {
     const response = await fetch(`${BACKEND_URL}/auth/status`, {
       method: "GET",
       credentials: "include"
-      // REMOVE the Origin header - let browser set it automatically
+
     });
 
     if (response.ok) {
@@ -83,23 +83,18 @@ async function checkAuthStatus() {
 
 
 function updateUIForLoggedInUser() {
-  // Switch views
   if (loginView) loginView.style.display = "none";
   if (appView) appView.style.display = "block";
 
-  // Hide login buttons
   if (loginBtn) loginBtn.style.display = "none";
 
-  const loginBtn2 = document.getElementById("loginWithGoogle2");
-  if (loginBtn2) loginBtn2.style.display = "none";
+  if (logoutBtn) logoutBtn.style.display = "block"; 
 
-  // Show user info
   if (userStatus) {
     userStatus.textContent = `Logged in as: ${currentUser}`;
     userStatus.style.display = "block";
   }
 
-  // Enable actions
   [sendBtn, generateDraftsBtn, generateMeetingBtn].forEach(btn => {
     if (btn) btn.disabled = false;
   });
@@ -112,6 +107,7 @@ function updateUIForLoggedOutUser() {
   if (appView) appView.style.display = "none";
 
   if (loginBtn) loginBtn.style.display = "block";
+  if (logoutBtn) logoutBtn.style.display = "none"; // ✅ ADD THIS
 
   if (userStatus) {
     userStatus.textContent = "";
@@ -122,13 +118,6 @@ function updateUIForLoggedOutUser() {
     if (btn) btn.disabled = true;
   });
 }
-
-
-  // Enable all action buttons
-  const actionButtons = [sendBtn, generateDraftsBtn, generateMeetingBtn];
-  actionButtons.forEach(btn => {
-    if (btn) btn.disabled = false;
-  });
 
 
 // ===================== LOGIN/LOGOUT HANDLERS =====================
@@ -785,7 +774,7 @@ async function initializeApp() {
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     try {
-      await fetch("https://YOUR_RENDER_URL/auth/logout", {
+      await fetch(`${BACKEND_URL}/auth/logout`, {
         method: "POST",
         credentials: "include"
       });
