@@ -5,7 +5,6 @@ let greetingSpoken = false;
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
 const chatMessages = document.getElementById("chatMessages");
-const themeToggle = document.getElementById("themeToggle");
 const body = document.body;
 const loginBtn = document.getElementById("loginWithGoogle");
 const userStatus = document.getElementById("userStatus");
@@ -133,17 +132,9 @@ if (loginBtn) {
 
 
 // ===================== THEME =====================
-const savedTheme = localStorage.getItem("theme") || "light";
-if (savedTheme === "dark") body.classList.add("dark");
-
-if (themeToggle) {
-  themeToggle.addEventListener("click", () => {
-    body.classList.toggle("dark");
-    localStorage.setItem(
-      "theme",
-      body.classList.contains("dark") ? "dark" : "light"
-    );
-  });
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme === "dark") {
+  document.body.classList.add("dark");
 }
 
 // ===================== SPEECH =====================
