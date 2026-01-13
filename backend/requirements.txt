@@ -16,3 +16,4 @@ openpyxl
 pytesseract
 pillow
 beautifulsoup4
+groq
