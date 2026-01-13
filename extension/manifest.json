@@ -11,6 +11,8 @@
     "https://inboxai-backend-tb5j.onrender.com/*"
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_title": "InboxAI",
+    "default_icon": "chatbot.png"
   }
 }
