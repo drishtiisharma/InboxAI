@@ -1,9 +1,10 @@
 # app.py - Fix middleware
 import traceback
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 import os
+from fastapi.responses import JSONResponse
 from db import init_db, save_conversation, get_conversation_history
 init_db()
 
@@ -55,23 +56,14 @@ else:
     print("⚠️ GROQ_API_KEY not set. AI features will be limited.")
     groq_client = None
 
-# ===================== CONVERSATION MEMORY =====================
-def get_user_conversation_history(email: str, limit: int = 10):
-    """Get conversation history for a user from database"""
-    return get_conversation_history(email, limit)
-
-def save_user_message(email: str, role: str, content: str):
-    """Save a message to user's conversation history"""
-    save_conversation(email, role, content)
-
 # ===================== AI CHAT FUNCTION =====================
-async def chat_with_ai(user_email: str, user_message: str, context: dict = None):
+async def chat_with_ai(user_email: str, user_message: str):
     """Chat with Groq AI with conversation memory"""
     if not groq_client:
         return "AI service is currently unavailable. Please try basic commands."
     
     # Get conversation history
-    history = get_user_conversation_history(user_email, limit=10)
+    history = get_conversation_history(user_email, limit=10)
     
     # Prepare messages for AI
     messages = [
@@ -107,7 +99,7 @@ async def chat_with_ai(user_email: str, user_message: str, context: dict = None)
     try:
         # Call Groq API
         response = groq_client.chat.completions.create(
-            model="llama3-70b-8192",  # or "mixtral-8x7b-32768" or "gemma2-9b-it"
+            model="llama3-70b-8192",
             messages=messages,
             temperature=0.7,
             max_tokens=500
@@ -116,52 +108,61 @@ async def chat_with_ai(user_email: str, user_message: str, context: dict = None)
         ai_reply = response.choices[0].message.content
         
         # Save conversation to database
-        save_user_message(user_email, "user", user_message)
-        save_user_message(user_email, "assistant", ai_reply)
+        save_conversation(user_email, "user", user_message)
+        save_conversation(user_email, "assistant", ai_reply)
         
         return ai_reply
         
     except Exception as e:
         print(f"Groq API error: {e}")
-        return "I encountered an error. Please try again or use specific commands like 'check emails' or 'schedule meeting'."
+        return "I encountered an error. Please try again or use specific commands."
 
 # ===================== SMART COMMAND PARSER =====================
 def parse_and_execute_command(user_email: str, creds, command: str, request: Request):
     """Parse command and execute appropriate action"""
     command_lower = command.lower()
     
+    # Simple greetings
+    greetings = ["hi", "hello", "hey", "hi there", "hello there", "greetings", "good morning", "good afternoon", "good evening"]
+    if any(greet in command_lower for greet in greetings):
+        return {"reply": "Hello! 👋 I'm InboxAI. I can help you with:\n• Checking emails\n• Writing email drafts\n• Scheduling meetings\n\nWhat would you like to do?"}
+    
+    if "help" in command_lower:
+        return {"reply": "I can help you with:\n• 'show unread emails' - Check your inbox\n• 'write email to john@example.com about meeting' - Draft an email\n• 'schedule meeting with team tomorrow' - Create a calendar event\n• 'check emails from boss' - See messages from someone"}
+    
+    if "thank" in command_lower:
+        return {"reply": "You're welcome! 😊 How else can I help you?"}
+    
     # Check for email-related commands
-    if any(word in command_lower for word in ["email", "inbox", "unread", "message", "mail"]):
-        if "unread" in command_lower:
+    email_keywords = ["email", "inbox", "unread", "message", "mail", "gmail"]
+    if any(word in command_lower for word in email_keywords):
+        if "unread" in command_lower or "new" in command_lower or "inbox" in command_lower:
             return get_unread_emails_summary(creds)
-        elif "last" in command_lower:
+        elif "last" in command_lower or "recent" in command_lower:
             return get_last_email_summary(creds)
         elif "from" in command_lower:
             return check_emails_from_sender(creds, command)
+        elif "send" in command_lower or "write" in command_lower or "compose" in command_lower or "draft" in command_lower:
+            return {
+                "reply": "To write an email, please use the 'Draft' tab where you can specify recipient and content.",
+                "action": "open_draft_tab"
+            }
         else:
-            return {"reply": "I can help with emails. Try:\n• 'Check unread emails'\n• 'Show last email'\n• 'Emails from John'"}
+            return {"reply": "I can help with emails. Try:\n• 'Check unread emails'\n• 'Show last email'\n• 'Emails from John'\n• Or use the 'Draft' tab to write emails"}
 
     # Check for meeting commands
-    elif any(word in command_lower for word in ["meeting", "schedule", "calendar", "event", "appointment"]):
-        if "create" in command_lower or "schedule" in command_lower or "set up" in command_lower:
-            # Extract meeting details from command
+    meeting_keywords = ["meeting", "schedule", "calendar", "event", "appointment", "meet", "call"]
+    if any(word in command_lower for word in meeting_keywords):
+        if "create" in command_lower or "schedule" in command_lower or "set up" in command_lower or "book" in command_lower:
             return {
-                "reply": "To schedule a meeting, please use the 'Meeting' tab in the interface where you can specify recipients, date, time, and agenda.",
+                "reply": "To schedule a meeting, please use the 'Meeting' tab where you can specify recipients, date, time, and agenda.",
                 "action": "open_meeting_tab"
             }
         else:
             return {"reply": "I can help schedule meetings. Use the 'Meeting' tab or say 'schedule a meeting with team tomorrow at 3pm'"}
 
-    # Check for email drafting
-    elif any(word in command_lower for word in ["write", "compose", "draft", "send email", "email to"]):
-        return {
-            "reply": "To write an email, please use the 'Draft' tab where you can specify recipient, subject, and content.",
-            "action": "open_draft_tab"
-        }
-
-    # If no specific command matched, use AI chat
-    else:
-        return None
+    # If no specific command matched, return None to use AI
+    return None
 
 # ===================== UPDATED COMMAND HANDLER =====================
 @app.post("/command")
@@ -172,15 +173,25 @@ async def handle_command(payload: CommandPayload, request: Request):
             raise HTTPException(status_code=401, detail="Not authenticated")
 
         # Get user credentials for Gmail/Calendar actions
-        creds = get_credentials_for_user(user_email) if "email" in payload.command.lower() or "meeting" in payload.command.lower() else None
+        creds = None
+        try:
+            # Only get credentials if command might need them
+            command_lower = payload.command.lower()
+            email_meeting_keywords = ["email", "mail", "inbox", "meeting", "schedule", "calendar"]
+            if any(word in command_lower for word in email_meeting_keywords):
+                creds = get_credentials_for_user(user_email)
+        except Exception as e:
+            print(f"Warning: Could not get credentials: {e}")
+            creds = None
         
         # First try to parse as specific command
         command_result = parse_and_execute_command(user_email, creds, payload.command, request)
         
         if command_result:
             # Save command to history
-            save_user_message(user_email, "user", payload.command)
-            save_user_message(user_email, "assistant", command_result.get("reply", ""))
+            save_conversation(user_email, "user", payload.command)
+            if "reply" in command_result:
+                save_conversation(user_email, "assistant", command_result["reply"])
             return command_result
         else:
             # Use AI for general conversation
@@ -189,32 +200,170 @@ async def handle_command(payload: CommandPayload, request: Request):
 
     except Exception as e:
         traceback.print_exc()
-        # Fallback to AI
+        # Try AI fallback
         try:
             user_email = request.session.get("user")
             if user_email:
-                ai_response = await chat_with_ai(user_email, f"I got an error but want to respond to: {payload.command}")
+                ai_response = await chat_with_ai(user_email, f"I got an error: {str(e)}. User asked: {payload.command}")
                 return {"reply": ai_response}
         except:
             pass
         
-        raise HTTPException(status_code=500, detail="Command processing failed")
+        return {"reply": "Sorry, I encountered an error. Please try again or use a specific command like 'check emails' or 'schedule meeting'."}
 
-# ===================== OTHER ROUTES (keep as is) =====================
+# ===================== ROUTERS =====================
+app.include_router(auth_router)
+
+# ===================== HEALTH =====================
 @app.get("/")
 async def health():
     return {"status": "InboxAI backend running 🚀"}
 
+# ===================== EMAIL DRAFT =====================
 @app.post("/email/draft")
 async def draft_email(payload: DraftRequest, request: Request):
-    # ... keep existing code ...
+    try:
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
 
+        # Generate drafts using AI
+        drafts = generate_email_drafts(
+            intent=payload.intent,
+            receiver=payload.receiver,
+            tone=payload.tone,
+            context=payload.context
+        )
+        
+        return {
+            "data": {
+                "drafts": drafts
+            }
+        }
+        
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to generate drafts")
+
+# ===================== CREATE MEETING =====================
 @app.post("/meeting/create")
 async def create_meeting_route(payload: MeetingRequest, request: Request):
-    # ... keep existing code ...
+    try:
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
 
-# ... keep all your existing helper functions ...
+        creds = get_credentials_for_user(user_email)
+        
+        meet_link = create_meeting(
+            creds=creds,
+            title=payload.title,
+            recipients=payload.recipients,
+            date=payload.date,
+            time=payload.time,
+            duration=payload.duration,
+            agenda=payload.agenda
+        )
+        
+        return {
+            "data": {
+                "meet_link": meet_link
+            }
+        }
+        
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to create meeting")
 
+# ===================== EMAIL HELPERS =====================
+def get_unread_emails_summary(creds): 
+    emails = get_unread_emails(creds)  
+    if not emails:
+        return {"reply": "No unread emails 🎉"}
+
+    service = get_gmail_service(creds)  
+    summaries = [summarize_email(service, e["id"]) for e in emails[:3]]
+    return {"reply": "\n\n".join(summaries)}
+
+def get_last_email_summary(creds):  
+    emails = get_unread_emails(creds, max_results=1)  
+    if not emails:
+        return {"reply": "No emails found."}
+
+    service = get_gmail_service(creds)  
+    summary = summarize_email(service, emails[0]["id"])
+    return {"reply": summary}
+
+def check_emails_from_sender(creds, command: str): 
+    sender = command.split("from")[-1].strip()
+    emails = get_unread_emails(creds, query=f"from:{sender}") 
+
+    if not emails:
+        return {"reply": f"No unread emails from {sender}."}
+
+    return {"reply": f"You have {len(emails)} unread emails from {sender}."}
+
+# ===================== MEETING =====================
+async def create_meeting_from_command(command: str, request: Request):
+    user_email = request.session.get("user")
+    creds = get_credentials_for_user(user_email)
+
+    meet_link = create_meeting(
+        creds=creds,
+        summary="Meeting via InboxAI",
+        description=command
+    )
+
+    return {
+        "reply": "Meeting created successfully.",
+        "meet_link": meet_link
+    }
+
+# ===================== SEND EMAIL =====================
+@app.post("/email/send")
+async def send_email_route(req: SendEmailRequest, request: Request):
+    try:
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        creds = get_credentials_for_user(user_email)
+        service = get_gmail_service(creds)
+
+        result = send_email(
+            service=service,
+            to=req.to,
+            subject=req.subject,
+            body=req.body
+        )
+
+        return {
+            "reply": f"Email successfully sent to {req.to}.",
+            "data": {
+                "message_id": result.get("id")
+            }
+        }
+
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to send email")
+
+# ===================== LOGOUT =====================
+@app.post("/auth/logout")
+def logout(request: Request):
+    response = JSONResponse({"success": True})
+    
+    # Clear session
+    request.session.clear()
+    
+    # Clear cookies
+    response.delete_cookie("session")
+    response.delete_cookie("user")
+    response.delete_cookie("inboxai_session")
+
+    return response
+
+# ===================== STARTUP =====================
 @app.on_event("startup")
 async def startup_event():
     print("\n=== Registered Routes ===")
