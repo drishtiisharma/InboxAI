@@ -1,21 +1,39 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Dict, Optional
-from dotenv import load_dotenv
-import traceback
-import re
+# app.py — InboxAI (LLM-first, corrected)
 
-from services.email_categorizer import get_email_category
-from services.gmail_client import get_unread_emails
-from ai_logic.email import summarize_email_logic
+import os
+import traceback
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
+
+from db import init_db, save_conversation, get_conversation_history
+init_db()
+
+# ===================== IMPORTS =====================
+from models import (
+    CommandPayload,
+    SendEmailRequest,
+    DraftRequest,
+    MeetingRequest
+)
+
+from services.auth import auth_router
+from services.gmail_client import (
+    get_gmail_service,
+    get_unread_emails,
+    send_email,
+    summarize_email,
+    get_credentials_for_user
+)
+from services.calendar_client import create_meeting
+from services.draft_service import generate_email_drafts
 from services.llm_client import intelligent_command_handler
 
-load_dotenv()
-
+# ===================== APP =====================
 app = FastAPI(title="InboxAI Backend")
 
-# ============================ CORS ============================
+# ===================== MIDDLEWARE =====================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,209 +42,194 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ============================ MODELS ============================
-class CommandPayload(BaseModel):
-    command: str
-    history: Optional[List[Dict[str, str]]] = None
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("SESSION_SECRET", "change-me"),
+    session_cookie="inboxai_session",
+    same_site="none",
+    https_only=True
+)
 
-# ============================ ROOT ============================
-@app.get("/")
-def root():
-    return {
-        "reply": "InboxAI backend running",
-        "data": {"docs": "/docs"}
-    }
+# ===================== GROQ SETUP =====================
+import groq
 
-# ============================ HELPERS ============================
-def normalize(text: str) -> str:
-    return re.sub(r"[^a-z]", "", text.lower())
+groq_client = None
+if os.environ.get("GROQ_API_KEY"):
+    groq_client = groq.Groq(api_key=os.environ["GROQ_API_KEY"])
 
+# ===================== CHAT FALLBACK =====================
+async def chat_with_ai(user_email: str, message: str):
+    if not groq_client:
+        return "AI service is currently unavailable."
 
-def check_emails_from_sender(sender_query: str):
-    emails = get_unread_emails() or []
-    normalized_query = normalize(sender_query)
+    history = get_conversation_history(user_email, limit=10)
 
-    matched = [
-        email for email in emails
-        if normalized_query in normalize(email.get("from", ""))
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are InboxAI, a smart email and calendar assistant. "
+                "If the message is casual conversation, just reply naturally."
+            )
+        }
     ]
 
-    if not matched:
-        return {
-            "reply": f"You have no unread emails from {sender_query}.",
-            "data": None
-        }
+    for h in history:
+        messages.append({"role": h["role"], "content": h["content"]})
 
-    return {
-        "reply": f"You have {len(matched)} unread email{'s' if len(matched) > 1 else ''} from {sender_query}.",
-        "data": {
-            "sender_query": sender_query,
-            "count": len(matched),
-            "emails": [
-                {
-                    "from": email.get("from"),
-                    "subject": email.get("subject", "No Subject")
-                }
-                for email in matched
-            ]
-        }
-    }
+    messages.append({"role": "user", "content": message})
 
+    try:
+        response = groq_client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=messages,
+            temperature=0.7,
+            max_tokens=400
+        )
 
-def get_unread_emails_summary():
-    emails = get_unread_emails() or []
+        reply = response.choices[0].message.content
 
+        save_conversation(user_email, "user", message)
+        save_conversation(user_email, "assistant", reply)
+
+        return reply
+
+    except Exception:
+        traceback.print_exc()
+        return "I ran into an issue. Try again."
+
+# ===================== EMAIL HELPERS =====================
+def get_unread_emails_summary(creds):
+    emails = get_unread_emails(creds)
     if not emails:
-        return {
-            "reply": "You have no unread emails.",
-            "data": None
+        return {"reply": "You have no unread emails 🎉"}
+
+    service = get_gmail_service(creds)
+    summaries = [summarize_email(service, e["id"]) for e in emails[:3]]
+    return {"reply": "\n\n".join(summaries)}
+
+def get_last_email_summary(creds):
+    emails = get_unread_emails(creds, max_results=1)
+    if not emails:
+        return {"reply": "You have no unread emails."}
+
+    service = get_gmail_service(creds)
+    return {"reply": summarize_email(service, emails[0]["id"])}
+
+def check_emails_from_sender(creds, sender_query: str):
+    emails = get_unread_emails(creds, query=f"from:{sender_query}")
+    if not emails:
+        return {"reply": f"No unread emails from {sender_query}."}
+
+    return {"reply": f"You have {len(emails)} unread emails from {sender_query}."}
+
+# ===================== COMMAND ROUTE =====================
+@app.post("/command")
+async def handle_command(payload: CommandPayload, request: Request):
+    try:
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        user_message = payload.command.strip()
+
+        # trivial shortcuts
+        if user_message.lower() in {"hi", "hello", "hey"}:
+            return {"reply": "Hi 👋 What can I help you with?"}
+
+        if "thank" in user_message.lower():
+            return {"reply": "Anytime 😊"}
+
+        # creds only if needed
+        creds = None
+        if any(k in user_message.lower() for k in ["email", "mail", "inbox", "calendar", "meeting"]):
+            creds = get_credentials_for_user(user_email)
+
+        # FUNCTION MAP (matches llm_client tools)
+        function_map = {
+            "get_unread_emails_summary": lambda: get_unread_emails_summary(creds),
+            "get_last_email_summary": lambda: get_last_email_summary(creds),
+            "check_emails_from_sender": lambda sender_query: check_emails_from_sender(creds, sender_query),
+            "create_meeting": lambda **kwargs: create_meeting(creds=creds, **kwargs),
         }
 
-    summaries = []
-    spoken_parts = []
-
-    for idx, email in enumerate(emails, start=1):
-        sender = email.get("from", "Unknown sender")
-        subject = email.get("subject", "No Subject")
-
-        summary = summarize_email_logic(
-            body=email.get("body", ""),
-            sender=sender,
-            subject=subject,
-            attachments=email.get("attachment_text", "")
+        result = intelligent_command_handler(
+            user_message=user_message,
+            function_map=function_map,
+            history=get_conversation_history(user_email)
         )
 
-        summaries.append({
-            "sender": sender,
-            "subject": subject,
-            "summary": summary
-        })
+        save_conversation(user_email, "user", user_message)
+        save_conversation(user_email, "assistant", result.get("reply", ""))
 
-        spoken_parts.append(
-            f"Email {idx} is from {sender}. {summary}"
-        )
+        return result
 
-    spoken_reply = (
-        f"You have {len(summaries)} unread emails.\n\n" +
-        "\n\n".join(spoken_parts)
+    except Exception:
+        traceback.print_exc()
+        return {"reply": "Something went wrong. Try again."}
+
+# ===================== EMAIL DRAFT =====================
+@app.post("/email/draft")
+async def draft_email(payload: DraftRequest, request: Request):
+    user_email = request.session.get("user")
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    drafts = generate_email_drafts(
+        intent=payload.intent,
+        receiver=payload.receiver,
+        tone=payload.tone,
+        context=payload.context
     )
 
-    return {
-        "reply": spoken_reply,
-        "data": {
-            "email_count": len(summaries),
-            "summaries": summaries
-        }
-    }
+    return {"data": {"drafts": drafts}}
 
+# ===================== SEND EMAIL =====================
+@app.post("/email/send")
+async def send_email_route(req: SendEmailRequest, request: Request):
+    user_email = request.session.get("user")
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-def get_last_email_summary():
-    emails = get_unread_emails(max_results=1) or []
+    creds = get_credentials_for_user(user_email)
+    service = get_gmail_service(creds)
 
-    if not emails:
-        return {
-            "reply": "You have no unread emails.",
-            "data": None
-        }
+    result = send_email(service, req.to, req.subject, req.body)
+    return {"reply": f"Email sent to {req.to}.", "data": result}
 
-    email = emails[0]
+# ===================== CREATE MEETING =====================
+@app.post("/meeting/create")
+async def create_meeting_route(payload: MeetingRequest, request: Request):
+    user_email = request.session.get("user")
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-    return {
-        "reply": summarize_email_logic(
-            body=email.get("body", ""),
-            sender=email.get("from", "Unknown sender"),
-            subject=email.get("subject", ""),
-            attachments=email.get("attachment_text", "")
-        ),
-        "data": {
-            "sender": email.get("from"),
-            "category": get_email_category(
-                email.get("body", ""),
-                email.get("from", ""),
-                email.get("subject", "")
-            ),
-            "has_attachments": bool(email.get("attachment_text"))
-        }
-    }
+    creds = get_credentials_for_user(user_email)
 
+    meet_link = create_meeting(
+        creds=creds,
+        title=payload.title,
+        recipients=payload.recipients,
+        date=payload.date,
+        time=payload.time,
+        duration=payload.duration,
+        agenda=payload.agenda
+    )
 
-def get_unread_email_categories():
-    emails = get_unread_emails() or []
+    return {"data": {"meet_link": meet_link}}
 
-    return {
-        "reply": f"I found {len(emails)} unread emails with categories.",
-        "data": {
-            "email_count": len(emails),
-            "categories": [
-                {
-                    "sender": email.get("from", ""),
-                    "subject": email.get("subject", "No Subject"),
-                    "category": get_email_category(
-                        email.get("body", ""),
-                        email.get("from", ""),
-                        email.get("subject", "")
-                    )
-                }
-                for email in emails
-            ]
-        }
-    }
+# ===================== AUTH =====================
+app.include_router(auth_router)
 
-# ============================ COMMAND ROUTER ============================
-@app.post("/command")
-def handle_command(payload: CommandPayload):
-    try:
-        command = payload.command.strip().lower()
-        history = payload.history or []
+# ===================== LOGOUT =====================
+@app.post("/auth/logout")
+def logout(request: Request):
+    response = JSONResponse({"success": True})
+    request.session.clear()
+    response.delete_cookie("inboxai_session")
+    return response
 
-        # ⚡ FAST RULE-BASED SHORTCUTS
-        if "email from" in command or "emails from" in command:
-            sender_query = command.split("from")[-1]
-            sender_query = re.sub(r"[^\w\s@.]", "", sender_query).strip()
-
-            if not sender_query:
-                return {"reply": "Whose emails should I check?", "data": None}
-
-            return check_emails_from_sender(sender_query)
-
-        if command in ["summarize", "summarize them", "summarise them"]:
-            return get_unread_emails_summary()
-
-        # 🧠 LLM FUNCTION MAP
-        function_map = {
-            "get_unread_emails_summary": get_unread_emails_summary,
-            "get_last_email_summary": get_last_email_summary,
-            "get_unread_email_categories": get_unread_email_categories,
-            "check_emails_from_sender": check_emails_from_sender,
-        }
-
-        # ✅ CORRECT CALL (THIS WAS THE BUG)
-        result = intelligent_command_handler(
-            payload.command,   # ← positional, NOT keyword
-            function_map,
-            history
-        )
-
-        if isinstance(result, dict):
-            return {
-                "reply": result.get("reply", ""),
-                "data": result.get("data")
-            }
-
-        return {"reply": str(result), "data": None}
-
-    except Exception:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Command processing failed")
-
-# ============================ DIRECT ROUTES ============================
-@app.post("/summarize/unread")
-def summarize_unread_emails():
-    try:
-        return get_unread_emails_summary()
-    except Exception:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to summarize unread emails"
-        )
+# ===================== HEALTH =====================
+@app.get("/")
+def health():
+    return {"status": "InboxAI backend running..."}
