@@ -1,4 +1,4 @@
-# app.py — InboxAI (LLM-first, corrected)
+# app.py — InboxAI (PURE LLM-FIRST)
 
 import os
 import traceback
@@ -50,54 +50,6 @@ app.add_middleware(
     https_only=True
 )
 
-# ===================== GROQ SETUP =====================
-import groq
-
-groq_client = None
-if os.environ.get("GROQ_API_KEY"):
-    groq_client = groq.Groq(api_key=os.environ["GROQ_API_KEY"])
-
-# ===================== CHAT FALLBACK =====================
-async def chat_with_ai(user_email: str, message: str):
-    if not groq_client:
-        return "AI service is currently unavailable."
-
-    history = get_conversation_history(user_email, limit=10)
-
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are InboxAI, a smart email and calendar assistant. "
-                "If the message is casual conversation, just reply naturally."
-            )
-        }
-    ]
-
-    for h in history:
-        messages.append({"role": h["role"], "content": h["content"]})
-
-    messages.append({"role": "user", "content": message})
-
-    try:
-        response = groq_client.chat.completions.create(
-            model="llama3-70b-8192",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=400
-        )
-
-        reply = response.choices[0].message.content
-
-        save_conversation(user_email, "user", message)
-        save_conversation(user_email, "assistant", reply)
-
-        return reply
-
-    except Exception:
-        traceback.print_exc()
-        return "I ran into an issue. Try again."
-
 # ===================== EMAIL HELPERS =====================
 def get_unread_emails_summary(creds):
     emails = get_unread_emails(creds)
@@ -131,35 +83,30 @@ async def handle_command(payload: CommandPayload, request: Request):
         if not user_email:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        user_message = payload.command.strip()
+        command = payload.command.strip()
 
-        # trivial shortcuts
-        if user_message.lower() in {"hi", "hello", "hey"}:
-            return {"reply": "Hi 👋 What can I help you with?"}
+        # 🔹 credentials are always lazy-loaded INSIDE functions
+        creds = get_credentials_for_user(user_email)
 
-        if "thank" in user_message.lower():
-            return {"reply": "Anytime 😊"}
-
-        # creds only if needed
-        creds = None
-        if any(k in user_message.lower() for k in ["email", "mail", "inbox", "calendar", "meeting"]):
-            creds = get_credentials_for_user(user_email)
-
-        # FUNCTION MAP (matches llm_client tools)
         function_map = {
             "get_unread_emails_summary": lambda: get_unread_emails_summary(creds),
             "get_last_email_summary": lambda: get_last_email_summary(creds),
             "check_emails_from_sender": lambda sender_query: check_emails_from_sender(creds, sender_query),
-            "create_meeting": lambda **kwargs: create_meeting(creds=creds, **kwargs),
+            "create_meeting": lambda **kwargs: {
+                "reply": "Meeting created successfully.",
+                "data": {
+                    "meet_link": create_meeting(creds=creds, **kwargs)
+                }
+            }
         }
 
         result = intelligent_command_handler(
-            user_message=user_message,
+            user_message=command,
             function_map=function_map,
             history=get_conversation_history(user_email)
         )
 
-        save_conversation(user_email, "user", user_message)
+        save_conversation(user_email, "user", command)
         save_conversation(user_email, "assistant", result.get("reply", ""))
 
         return result
@@ -193,30 +140,9 @@ async def send_email_route(req: SendEmailRequest, request: Request):
 
     creds = get_credentials_for_user(user_email)
     service = get_gmail_service(creds)
-
     result = send_email(service, req.to, req.subject, req.body)
+
     return {"reply": f"Email sent to {req.to}.", "data": result}
-
-# ===================== CREATE MEETING =====================
-@app.post("/meeting/create")
-async def create_meeting_route(payload: MeetingRequest, request: Request):
-    user_email = request.session.get("user")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    creds = get_credentials_for_user(user_email)
-
-    meet_link = create_meeting(
-        creds=creds,
-        title=payload.title,
-        recipients=payload.recipients,
-        date=payload.date,
-        time=payload.time,
-        duration=payload.duration,
-        agenda=payload.agenda
-    )
-
-    return {"data": {"meet_link": meet_link}}
 
 # ===================== AUTH =====================
 app.include_router(auth_router)
@@ -232,4 +158,4 @@ def logout(request: Request):
 # ===================== HEALTH =====================
 @app.get("/")
 def health():
-    return {"status": "InboxAI backend running..."}
+    return {"status": "InboxAI backend running 🚀"}
