@@ -210,6 +210,47 @@ def get_unread_emails(creds, max_results=10, query: str = None):
         })
 
     return emails
+def summarize_email(service, message_id: str):
+    """
+    Summarize a single email by ID.
+    This exists because app.py IMPORTS IT.
+    """
+    msg_data = service.users().messages().get(
+        userId="me",
+        id=message_id,
+        format="full"
+    ).execute()
+
+    payload = msg_data.get("payload", {})
+    headers = payload.get("headers", [])
+
+    sender = next(
+        (h["value"] for h in headers if h["name"].lower() == "from"),
+        "Unknown"
+    )
+
+    subject = next(
+        (h["value"] for h in headers if h["name"].lower() == "subject"),
+        "No Subject"
+    )
+
+    body = extract_body(payload)
+    clean_body = clean_email_text(body)
+
+    attachments = []
+    extract_attachments(payload, service, message_id, attachments)
+
+    attachment_text = ""
+    if attachments:
+        processed = process_all_attachments(attachments)
+        attachment_text = create_attachment_summary(processed)
+
+    return summarize_email_logic(
+        body=clean_body,
+        sender=sender,
+        subject=subject,
+        attachments=attachment_text
+    )
 
 # ============================ SEND EMAIL ============================
 
