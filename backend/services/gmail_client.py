@@ -1,42 +1,42 @@
 import os
 import base64
 import re
-from googleapiclient.discovery import build
 from email.message import EmailMessage
+
+from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 
+from ai_logic.email import summarize_email_logic
 from ai_logic.readers.attachment_processor import (
     process_all_attachments,
     create_attachment_summary
 )
 
 # ============================ CREDENTIALS ============================
+
 def get_credentials_for_user(email: str):
     """
     Get Google credentials for a specific user using their refresh token from DB.
     """
-    # Import here to avoid circular imports
-    from db import get_refresh_token
-    
+    from db import get_refresh_token  # avoid circular import
+
     refresh_token = get_refresh_token(email)
     if not refresh_token:
         raise Exception(f"No credentials found for user: {email}")
-    
-    # Get client ID and secret from environment
-    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
-    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
-    
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+
+    if not client_id or not client_secret:
         raise Exception("Google OAuth credentials not configured")
-    
-    # Create credentials from refresh token
+
     creds = Credentials(
         token=None,
         refresh_token=refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=GOOGLE_CLIENT_ID,
-        client_secret=GOOGLE_CLIENT_SECRET,
+        client_id=client_id,
+        client_secret=client_secret,
         scopes=[
             "https://www.googleapis.com/auth/gmail.modify",
             "https://www.googleapis.com/auth/calendar",
@@ -45,72 +45,19 @@ def get_credentials_for_user(email: str):
             "openid"
         ]
     )
-    
-    # Refresh token if needed
+
     if creds.expired or not creds.valid:
-        try:
-            creds.refresh(GoogleRequest())
-        except Exception as e:
-            raise Exception(f"Failed to refresh credentials: {str(e)}")
-    
+        creds.refresh(GoogleRequest())
+
     return creds
 
 # ============================ GMAIL SERVICE ============================
 
 def get_gmail_service(creds):
-    """
-    Build Gmail service using already-authenticated credentials.
-    creds MUST be a valid google.oauth2.credentials.Credentials object.
-    """
     if not creds:
         raise RuntimeError("Missing Google credentials")
 
     return build("gmail", "v1", credentials=creds)
-
-# ============================ EMAIL SUMMARIZATION ============================
-
-def summarize_email(service, message_id: str):
-    """
-    Summarize a single email by its ID.
-    This function is called from app.py - MUST EXIST!
-    """
-    try:
-        msg_data = service.users().messages().get(
-            userId="me",
-            id=message_id,
-            format="full"
-        ).execute()
-
-        payload = msg_data.get("payload", {})
-        headers = payload.get("headers", [])
-
-        sender = next(
-            (h["value"] for h in headers if h["name"].lower() == "from"),
-            "Unknown"
-        )
-
-        subject = next(
-            (h["value"] for h in headers if h["name"].lower() == "subject"),
-            "No Subject"
-        )
-
-        body = extract_body(payload)
-        
-        # Clean up body - remove HTML tags
-        clean_body = re.sub(r'<[^>]+>', '', body)
-        clean_body = clean_body.replace('\r', '').replace('\n', ' ').strip()
-        
-        # Simple summary - first 150 chars
-        if len(clean_body) > 150:
-            summary = clean_body[:147] + "..."
-        else:
-            summary = clean_body
-        
-        return f"From: {sender}\nSubject: {subject}\nSummary: {summary}"
-        
-    except Exception as e:
-        print(f"Error summarizing email {message_id}: {e}")
-        return f"Error summarizing email"
 
 # ============================ BODY EXTRACTION ============================
 
@@ -158,10 +105,10 @@ def extract_attachments(payload, service, message_id, attachments_list):
                 id=att_id
             ).execute()
 
-            file_data = base64.urlsafe_b64decode(att["data"].encode("UTF-8"))
+            file_data = base64.urlsafe_b64decode(att["data"].encode("utf-8"))
 
             os.makedirs("temp_attachments", exist_ok=True)
-            file_path = f"temp_attachments/{part['filename']}"
+            file_path = os.path.join("temp_attachments", part["filename"])
 
             with open(file_path, "wb") as f:
                 f.write(file_data)
@@ -174,31 +121,49 @@ def extract_attachments(payload, service, message_id, attachments_list):
         if part.get("parts"):
             extract_attachments(part, service, message_id, attachments_list)
 
-# ============================ READ UNREAD EMAILS ============================
+# ============================ TEXT CLEANING ============================
+
+def clean_email_text(text: str):
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"\s+", " ", text)
+
+    blacklist = [
+        "unsubscribe",
+        "view in browser",
+        "privacy policy",
+        "terms",
+        "copyright"
+    ]
+
+    sentences = text.split(". ")
+    useful = [
+        s for s in sentences
+        if not any(b in s.lower() for b in blacklist)
+    ]
+
+    return ". ".join(useful).strip()
+
+# ============================ READ + AI SUMMARIZE EMAILS ============================
 
 def get_unread_emails(creds, max_results=10, query: str = None):
     """
-    Fetch unread emails for the authenticated user.
+    Fetch unread emails and summarize them using AI.
     """
     service = get_gmail_service(creds)
-    
-    # Build query
-    query_params = ["is:unread"]
+
+    q = ["is:unread"]
     if query:
-        query_params.append(query)
-    
-    full_query = " ".join(query_params)
+        q.append(query)
 
     results = service.users().messages().list(
         userId="me",
-        q=full_query,
+        q=" ".join(q),
         maxResults=max_results
     ).execute()
 
-    messages = results.get("messages", [])
     emails = []
 
-    for msg in messages:
+    for msg in results.get("messages", []):
         msg_data = service.users().messages().get(
             userId="me",
             id=msg["id"],
@@ -219,26 +184,29 @@ def get_unread_emails(creds, max_results=10, query: str = None):
         )
 
         body = extract_body(payload)
+        clean_body = clean_email_text(body)
 
         attachments = []
         extract_attachments(payload, service, msg["id"], attachments)
 
         attachment_text = ""
         if attachments:
-            try:
-                processed = process_all_attachments(attachments)
-                attachment_text = create_attachment_summary(processed)
-            except Exception as e:
-                print(f"Error processing attachments: {e}")
-                attachment_text = "[Error processing attachments]"
+            processed = process_all_attachments(attachments)
+            attachment_text = create_attachment_summary(processed)
+
+        summary = summarize_email_logic(
+            body=clean_body,
+            sender=sender,
+            subject=subject,
+            attachments=attachment_text
+        )
 
         emails.append({
             "id": msg["id"],
             "from": sender,
             "subject": subject,
-            "body": body,
-            "attachments": attachments,
-            "attachment_text": attachment_text
+            "summary": summary,
+            "attachments": attachments
         })
 
     return emails
@@ -246,9 +214,6 @@ def get_unread_emails(creds, max_results=10, query: str = None):
 # ============================ SEND EMAIL ============================
 
 def send_email(service, to: str, subject: str, body: str):
-    """
-    Send an email using an already-built Gmail service.
-    """
     message = EmailMessage()
     message.set_content(body)
 
@@ -256,19 +221,11 @@ def send_email(service, to: str, subject: str, body: str):
     message["From"] = "me"
     message["Subject"] = subject
 
-    encoded_message = base64.urlsafe_b64encode(
+    encoded = base64.urlsafe_b64encode(
         message.as_bytes()
-    ).decode()
+    ).decode("utf-8")
 
-    send_body = {
-        "raw": encoded_message
-    }
-
-    sent_message = (
-        service.users()
-        .messages()
-        .send(userId="me", body=send_body)
-        .execute()
-    )
-
-    return sent_message
+    return service.users().messages().send(
+        userId="me",
+        body={"raw": encoded}
+    ).execute()
