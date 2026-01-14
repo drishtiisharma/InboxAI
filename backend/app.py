@@ -23,9 +23,10 @@ from services.gmail_client import (
     get_gmail_service,
     get_unread_emails,
     send_email,
-    summarize_email,
     get_credentials_for_user
 )
+from services.gmail_client import summarize_email
+
 from services.calendar_client import create_meeting
 from services.draft_service import generate_email_drafts
 from services.llm_client import intelligent_command_handler
@@ -75,6 +76,13 @@ def check_emails_from_sender(creds, sender_query: str):
 
     return {"reply": f"You have {len(emails)} unread emails from {sender_query}."}
 
+def get_unread_email_categories_handler(creds):
+    return {
+        "reply": "Email categories feature is under development.",
+        "data": None
+    }
+
+
 # ===================== COMMAND ROUTE =====================
 @app.post("/command")
 async def handle_command(payload: CommandPayload, request: Request):
@@ -89,16 +97,25 @@ async def handle_command(payload: CommandPayload, request: Request):
         creds = get_credentials_for_user(user_email)
 
         function_map = {
-            "get_unread_emails_summary": lambda: get_unread_emails_summary(creds),
-            "get_last_email_summary": lambda: get_last_email_summary(creds),
-            "check_emails_from_sender": lambda sender_query: check_emails_from_sender(creds, sender_query),
-            "create_meeting": lambda **kwargs: {
-                "reply": "Meeting created successfully.",
-                "data": {
-                    "meet_link": create_meeting(creds=creds, **kwargs)
-                }
-            }
+    "get_unread_emails_summary": lambda **_: get_unread_emails_summary(creds),
+
+    "get_last_email_summary": lambda **_: get_last_email_summary(creds),
+
+    "check_emails_from_sender": lambda **kwargs: check_emails_from_sender(
+        creds,
+        kwargs.get("sender_query") or kwargs.get("sender")
+    ),
+
+    "get_unread_email_categories": lambda **_: get_unread_email_categories_handler(creds),
+
+    "create_meeting": lambda **kwargs: {
+        "reply": "Meeting created successfully.",
+        "data": {
+            "meet_link": create_meeting(creds=creds, **kwargs)
         }
+    }
+}
+
 
         result = intelligent_command_handler(
             user_message=command,
@@ -111,9 +128,10 @@ async def handle_command(payload: CommandPayload, request: Request):
 
         return result
 
-    except Exception:
+    except Exception as e:
         traceback.print_exc()
-        return {"reply": "Something went wrong. Try again."}
+        return {"reply": f"Backend error: {str(e)}"}
+
 
 # ===================== EMAIL DRAFT =====================
 @app.post("/email/draft")
