@@ -65,23 +65,25 @@ def save_conversation(email: str, role: str, content: str):
     conn.commit()
     conn.close()
 
-def get_conversation_history(email: str, limit: int = 10):
-    """Get conversation history for a user"""
+def get_conversation_history(user_email: str, limit: int = 10):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    
+
     cursor.execute("""
-        SELECT role, content, timestamp 
-        FROM conversations 
-        WHERE email = ? 
-        ORDER BY timestamp DESC 
+        SELECT role, content
+        FROM conversations
+        WHERE email = ?
+        ORDER BY id ASC
         LIMIT ?
-    """, (email, limit))
-    
+    """, (user_email, limit))
+
     rows = cursor.fetchall()
     conn.close()
-    
+
     return [
-        {"role": row[0], "content": row[1], "timestamp": row[2]}
-        for row in rows[::-1]  # Reverse to get chronological order
+        {
+            "role": role,
+            "content": content
+        }
+        for role, content in rows
     ]
