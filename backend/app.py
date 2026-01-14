@@ -52,8 +52,10 @@ app.add_middleware(
 )
 
 # ===================== EMAIL HELPERS =====================
-def get_unread_emails_summary(creds):
+def get_unread_emails_summary(user_email: str):
+    creds = get_credentials_for_user(user_email)
     emails = get_unread_emails(creds)
+
     if not emails:
         return {"reply": "You have no unread emails 🎉"}
 
@@ -61,22 +63,29 @@ def get_unread_emails_summary(creds):
     summaries = [summarize_email(service, e["id"]) for e in emails[:3]]
     return {"reply": "\n\n".join(summaries)}
 
-def get_last_email_summary(creds):
+
+def get_last_email_summary(user_email: str):
+    creds = get_credentials_for_user(user_email)
     emails = get_unread_emails(creds, max_results=1)
+
     if not emails:
         return {"reply": "You have no unread emails."}
 
     service = get_gmail_service(creds)
     return {"reply": summarize_email(service, emails[0]["id"])}
 
-def check_emails_from_sender(creds, sender_query: str):
+
+def check_emails_from_sender(user_email: str, sender_query: str):
+    creds = get_credentials_for_user(user_email)
     emails = get_unread_emails(creds, query=f"from:{sender_query}")
+
     if not emails:
         return {"reply": f"No unread emails from {sender_query}."}
 
     return {"reply": f"You have {len(emails)} unread emails from {sender_query}."}
 
-def get_unread_email_categories_handler(creds):
+
+def get_unread_email_categories_handler(user_email: str):
     return {
         "reply": "Email categories feature is under development.",
         "data": None
@@ -93,29 +102,28 @@ async def handle_command(payload: CommandPayload, request: Request):
 
         command = payload.command.strip()
 
-        # 🔹 credentials are always lazy-loaded INSIDE functions
-        creds = get_credentials_for_user(user_email)
-
         function_map = {
-    "get_unread_emails_summary": lambda **_: get_unread_emails_summary(creds),
+    "get_unread_emails_summary": lambda **_: get_unread_emails_summary(user_email),
 
-    "get_last_email_summary": lambda **_: get_last_email_summary(creds),
+    "get_last_email_summary": lambda **_: get_last_email_summary(user_email),
 
     "check_emails_from_sender": lambda **kwargs: check_emails_from_sender(
-        creds,
-        kwargs.get("sender_query") or kwargs.get("sender")
+        user_email,
+        kwargs.get("sender_query")
     ),
 
-    "get_unread_email_categories": lambda **_: get_unread_email_categories_handler(creds),
+    "get_unread_email_categories": lambda **_: get_unread_email_categories_handler(user_email),
 
     "create_meeting": lambda **kwargs: {
         "reply": "Meeting created successfully.",
         "data": {
-            "meet_link": create_meeting(creds=creds, **kwargs)
+            "meet_link": create_meeting(
+                creds=get_credentials_for_user(user_email),
+                **kwargs
+            )
         }
     }
 }
-
 
         result = intelligent_command_handler(
             user_message=command,
