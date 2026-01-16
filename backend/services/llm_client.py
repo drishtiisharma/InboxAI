@@ -125,7 +125,7 @@ def intelligent_command_handler(
     attachment_summary: str = ""
 ) -> dict:
     """
-    Intelligent command handler using function calling
+    Intelligent command handler using function calling.
 
     ALWAYS returns:
     {

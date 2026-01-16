@@ -143,10 +143,9 @@ async def handle_command(payload: CommandPayload, request: Request):
 
         result = intelligent_command_handler(
     user_message=command,
-    function_map=function_map,  # tools available
+    function_map=function_map,  
     history=get_conversation_history(user_email),
     attachment_summary=attachment_summary,
-    allow_general_knowledge=True
 )
 
 
