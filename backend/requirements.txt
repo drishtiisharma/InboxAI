@@ -1,33 +1,19 @@
-# FastAPI backend
 fastapi
 uvicorn
 pydantic
 python-dotenv
-
-# Google / Gmail API
+starlette
+itsdangerous
 google-auth
 google-auth-oauthlib
 google-api-python-client
-
-# PDF reading
+requests
+httpx
+openai
 pdfplumber
-pdfminer.six
-
-# Word reading
 python-docx
-
-# Excel reading
 openpyxl
-
-# Image reading
 pytesseract
 pillow
-
-# HTTP client
-requests
-
-# LLM API client
-groq
-
-# HTML parsing
 beautifulsoup4
+groq

@@ -1,52 +1,63 @@
 import os
 import base64
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
+import re
 from email.message import EmailMessage
+
+from googleapiclient.discovery import build
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleRequest
+
+from ai_logic.email import summarize_email_logic
 from ai_logic.readers.attachment_processor import (
     process_all_attachments,
     create_attachment_summary
 )
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify", 
-          "https://www.googleapis.com/auth/calendar"]
+# ============================ CREDENTIALS ============================
 
+def get_credentials_for_user(email: str):
+    """
+    Get Google credentials for a specific user using their refresh token from DB.
+    """
+    from db import get_refresh_token  # avoid circular import
 
-TOKEN_FILE = "token.json"
-CREDENTIALS_FILE = "client_secret.json"
+    refresh_token = get_refresh_token(email)
+    if not refresh_token:
+        raise Exception(f"No credentials found for user: {email}")
 
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+
+    if not client_id or not client_secret:
+        raise Exception("Google OAuth credentials not configured")
+
+    creds = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=[
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "openid"
+        ]
+    )
+
+    if creds.expired or not creds.valid:
+        creds.refresh(GoogleRequest())
+
+    return creds
 
 # ============================ GMAIL SERVICE ============================
 
-def get_gmail_service():
-    creds = None
-
-    # Load existing token
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-
-    # If no valid credentials, force OAuth login
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not os.path.exists(CREDENTIALS_FILE):
-                raise RuntimeError("Missing client_secret.json for Gmail OAuth")
-
-            flow = InstalledAppFlow.from_client_secrets_file(
-                CREDENTIALS_FILE,
-                SCOPES
-            )
-            creds = flow.run_local_server(port=0, prompt="consent")
-
-        # Save token for future runs
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
+def get_gmail_service(creds):
+    if not creds:
+        raise RuntimeError("Missing Google credentials")
 
     return build("gmail", "v1", credentials=creds)
-
 
 # ============================ BODY EXTRACTION ============================
 
@@ -79,7 +90,6 @@ def extract_body(payload):
 
     return html_body
 
-
 # ============================ ATTACHMENTS ============================
 
 def extract_attachments(payload, service, message_id, attachments_list):
@@ -95,10 +105,10 @@ def extract_attachments(payload, service, message_id, attachments_list):
                 id=att_id
             ).execute()
 
-            file_data = base64.urlsafe_b64decode(att["data"].encode("UTF-8"))
+            file_data = base64.urlsafe_b64decode(att["data"].encode("utf-8"))
 
             os.makedirs("temp_attachments", exist_ok=True)
-            file_path = f"temp_attachments/{part['filename']}"
+            file_path = os.path.join("temp_attachments", part["filename"])
 
             with open(file_path, "wb") as f:
                 f.write(file_data)
@@ -111,22 +121,49 @@ def extract_attachments(payload, service, message_id, attachments_list):
         if part.get("parts"):
             extract_attachments(part, service, message_id, attachments_list)
 
+# ============================ TEXT CLEANING ============================
 
-# ============================ MAIN FUNCTION ============================
+def clean_email_text(text: str):
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"\s+", " ", text)
 
-def get_unread_emails(max_results=10):
-    service = get_gmail_service()
+    blacklist = [
+        "unsubscribe",
+        "view in browser",
+        "privacy policy",
+        "terms",
+        "copyright"
+    ]
+
+    sentences = text.split(". ")
+    useful = [
+        s for s in sentences
+        if not any(b in s.lower() for b in blacklist)
+    ]
+
+    return ". ".join(useful).strip()
+
+# ============================ READ + AI SUMMARIZE EMAILS ============================
+
+def get_unread_emails(creds, max_results=10, query: str = None):
+    """
+    Fetch unread emails and summarize them using AI.
+    """
+    service = get_gmail_service(creds)
+
+    q = ["is:unread"]
+    if query:
+        q.append(query)
 
     results = service.users().messages().list(
         userId="me",
-        labelIds=["UNREAD"],
+        q=" ".join(q),
         maxResults=max_results
     ).execute()
 
-    messages = results.get("messages", [])
     emails = []
 
-    for msg in messages:
+    for msg in results.get("messages", []):
         msg_data = service.users().messages().get(
             userId="me",
             id=msg["id"],
@@ -147,29 +184,76 @@ def get_unread_emails(max_results=10):
         )
 
         body = extract_body(payload)
+        clean_body = clean_email_text(body)
 
         attachments = []
         extract_attachments(payload, service, msg["id"], attachments)
 
         attachment_text = ""
         if attachments:
-            try:
-                processed = process_all_attachments(attachments)
-                attachment_text = create_attachment_summary(processed)
-            except Exception as e:
-                attachment_text = f"[Error processing {len(attachments)} attachment(s)]"
+            processed = process_all_attachments(attachments)
+            attachment_text = create_attachment_summary(processed)
+
+        summary = summarize_email_logic(
+            body=clean_body,
+            sender=sender,
+            subject=subject,
+            attachments=attachment_text
+        )
 
         emails.append({
             "id": msg["id"],
             "from": sender,
             "subject": subject,
-            "body": body,
-            "attachments": attachments,
-            "attachment_text": attachment_text
+            "summary": summary,
+            "attachments": attachments
         })
 
     return emails
+def summarize_email(service, message_id: str):
+    """
+    Summarize a single email by ID.
+    This exists because app.py IMPORTS IT.
+    """
+    msg_data = service.users().messages().get(
+        userId="me",
+        id=message_id,
+        format="full"
+    ).execute()
+
+    payload = msg_data.get("payload", {})
+    headers = payload.get("headers", [])
+
+    sender = next(
+        (h["value"] for h in headers if h["name"].lower() == "from"),
+        "Unknown"
+    )
+
+    subject = next(
+        (h["value"] for h in headers if h["name"].lower() == "subject"),
+        "No Subject"
+    )
+
+    body = extract_body(payload)
+    clean_body = clean_email_text(body)
+
+    attachments = []
+    extract_attachments(payload, service, message_id, attachments)
+
+    attachment_text = ""
+    if attachments:
+        processed = process_all_attachments(attachments)
+        attachment_text = create_attachment_summary(processed)
+
+    return summarize_email_logic(
+        body=clean_body,
+        sender=sender,
+        subject=subject,
+        attachments=attachment_text
+    )
+
 # ============================ SEND EMAIL ============================
+
 def send_email(service, to: str, subject: str, body: str):
     message = EmailMessage()
     message.set_content(body)
@@ -178,64 +262,11 @@ def send_email(service, to: str, subject: str, body: str):
     message["From"] = "me"
     message["Subject"] = subject
 
-    encoded_message = base64.urlsafe_b64encode(
+    encoded = base64.urlsafe_b64encode(
         message.as_bytes()
-    ).decode()
+    ).decode("utf-8")
 
-    send_body = {
-        "raw": encoded_message
-    }
-
-    sent_message = (
-        service.users()
-        .messages()
-        .send(userId="me", body=send_body)
-        .execute()
-    )
-
-    return sent_message
-
-# In gmail_client.py, update the get_google_credentials function:
-
-def get_google_credentials():
-    """Get Google credentials with Calendar scope"""
-    
-    # Define Calendar-specific scopes
-    CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
-    
-    creds = None
-    
-    # Check if token exists
-    if os.path.exists(TOKEN_FILE):
-        try:
-            # Try to load with Calendar scope
-            creds = Credentials.from_authorized_user_file(TOKEN_FILE, CALENDAR_SCOPES)
-        except Exception:
-            # Token exists but doesn't have Calendar scope - need re-auth
-            creds = None
-    
-    # If no valid Calendar credentials, force OAuth with Calendar scope
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except Exception:
-                # Refresh failed - need re-auth
-                creds = None
-    
-    if not creds:
-        # Force OAuth with Calendar scope
-        if not os.path.exists(CREDENTIALS_FILE):
-            raise RuntimeError("Missing client_secret.json for Google OAuth")
-        
-        flow = InstalledAppFlow.from_client_secrets_file(
-            CREDENTIALS_FILE,
-            CALENDAR_SCOPES  # Only Calendar scope
-        )
-        creds = flow.run_local_server(port=0, prompt="consent")
-        
-        # Save the new token
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
-    
-    return creds
+    return service.users().messages().send(
+        userId="me",
+        body={"raw": encoded}
+    ).execute()

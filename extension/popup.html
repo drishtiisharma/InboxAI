@@ -3,7 +3,6 @@
 <head>
   <title>InboxAI</title>
   <style>
-    /* ===================== RESET ===================== */
     * {
       margin: 0;
       padding: 0;
@@ -30,7 +29,7 @@
       background: #ffffff;
       border-radius: 24px;
       box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-      padding: 35px 30px;
+      padding: 60px 30px 35px;
       width: 480px;
       max-width: 100%;
       position: relative;
@@ -42,6 +41,81 @@
       box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
     }
 
+    /* ===================== THEME TOGGLE ===================== */
+/* ===================== THEME TOGGLE ===================== */
+.theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+body.dark .theme-toggle {
+  background: #334155;
+  border-color: #475569;
+}
+
+body.dark .theme-toggle:hover {
+  background: #475569;
+}
+
+/* SVG icons inside theme toggle */
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+  transition: all 0.3s ease;
+}
+
+/* Sun icon - FIXED: Ensure it's visible and properly sized */
+.sun-icon {
+  position: absolute;
+  fill: #f59e0b;
+  stroke: #f59e0b;
+  stroke-width: 1.5;
+  width: 20px;
+  height: 20px;
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Moon icon - FIXED: Ensure proper positioning */
+.moon-icon {
+  position: absolute;
+  fill: #e2e8f0;
+  stroke: #e2e8f0;
+  stroke-width: 1.5;
+  width: 20px;
+  height: 20px;
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+/* When dark mode is active - FIXED: Proper transitions */
+body.dark .sun-icon {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+body.dark .moon-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
     h3 {
       background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
       -webkit-background-clip: text;
@@ -51,6 +125,58 @@
       margin-bottom: 25px;
       text-align: center;
       letter-spacing: -1px;
+    }
+
+    /* ===================== AUTH BAR ===================== */
+    .auth-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    body.dark .auth-bar {
+      border-bottom-color: #334155;
+    }
+
+    .user-status {
+      font-size: 14px;
+      color: #64748b;
+      padding: 6px 12px;
+      background: #f1f5f9;
+      border-radius: 12px;
+    }
+
+    body.dark .user-status {
+      background: #334155;
+      color: #cbd5e1;
+    }
+
+    .auth-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .auth-btn {
+      padding: 8px 16px;
+      border-radius: 12px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .login-btn {
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+      color: white;
+    }
+
+    .logout-btn {
+      background: #ef4444;
+      color: white;
     }
 
     /* ===================== LOGIN VIEW ===================== */
@@ -95,49 +221,42 @@
       color: #94a3b8;
     }
 
-    .google-login-btn {
-      width: 100%;
-      padding: 14px;
-      border-radius: 14px;
-      border: none;
-      cursor: pointer;
-      font-size: 15px;
-      font-weight: 600;
-      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-      color: white;
-      box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
-      transition: all 0.3s ease;
-    }
-
-    .google-login-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 28px rgba(6, 182, 212, 0.5);
-    }
-
     /* ===================== APP VIEW ===================== */
     #appView {
-      display: none; /* JS will toggle later */
+      display: none;
     }
 
-    /* ===================== STEP INDICATOR ===================== */
-    .step-indicator {
+    /* ===================== MODE SELECTOR ===================== */
+    .mode-selector {
       display: flex;
       justify-content: center;
       gap: 8px;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
     }
 
     .step {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #cbd5e1;
+      flex: 1;
+      text-align: center;
+      padding: 10px 0;
+      background: #f1f5f9;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      transition: all 0.3s ease;
+    }
+
+    body.dark .step {
+      background: #334155;
+      color: #94a3b8;
     }
 
     .step.active {
-      width: 24px;
-      border-radius: 4px;
       background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
     }
 
     /* ===================== CHAT ===================== */
@@ -170,6 +289,48 @@
       color: #0f172a;
     }
 
+    body.dark .message.bot {
+      background: #0c4a6e;
+      border-color: #0e7490;
+      color: #e2e8f0;
+    }
+
+    .thinking {
+      padding: 12px 16px;
+      border-radius: 16px;
+      max-width: 85%;
+      align-self: flex-start;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    body.dark .thinking {
+      background: #334155;
+    }
+
+    .thinking-dots {
+      display: flex;
+      gap: 4px;
+    }
+
+    .thinking-dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #06b6d4;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
     textarea#input {
       width: 100%;
       min-height: 80px;
@@ -178,6 +339,14 @@
       border: 2px solid #e2e8f0;
       margin-top: 20px;
       resize: vertical;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    body.dark textarea#input {
+      background: #334155;
+      border-color: #475569;
+      color: #e2e8f0;
     }
 
     #send {
@@ -190,21 +359,268 @@
       color: white;
       font-weight: 700;
       cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    #send:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
+    }
+
+    #send:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ===================== DRAFT & MEETING STYLES ===================== */
+    .form-step {
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .input-section {
+      margin-bottom: 20px;
+    }
+
+    .input-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    body.dark .input-label {
+      color: #e2e8f0;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 2px solid #e2e8f0;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    body.dark .input-field {
+      background: #334155;
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      border-radius: 16px;
+      border: none;
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+      font-size: 15px;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Draft Cards */
+    .draft-cards {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+
+    .draft-card {
+      padding: 16px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      border: 2px solid #e2e8f0;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    body.dark .draft-card {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .draft-card:hover {
+      border-color: #06b6d4;
+    }
+
+    .draft-card.selected {
+      border-color: #06b6d4;
+      background: #ecfeff;
+    }
+
+    body.dark .draft-card.selected {
+      background: #0c4a6e;
+    }
+
+    .draft-card-header {
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #0f172a;
+    }
+
+    body.dark .draft-card-header {
+      color: #e2e8f0;
+    }
+
+    .draft-card-subject {
+      font-size: 14px;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+
+    body.dark .draft-card-subject {
+      color: #94a3b8;
+    }
+
+    .draft-card-body {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.5;
+      max-height: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    body.dark .draft-card-body {
+      color: #cbd5e1;
+    }
+
+    /* Confirmation */
+    .confirmation-box {
+      padding: 20px;
+      border-radius: 16px;
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+    }
+
+    body.dark .confirmation-box {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .confirmation-detail {
+      margin-bottom: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .confirmation-detail strong {
+      color: #0f172a;
+    }
+
+    body.dark .confirmation-detail strong {
+      color: #e2e8f0;
+    }
+
+    .confirmation-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .confirmation-buttons button {
+      flex: 1;
+      margin: 0;
+    }
+
+    .btn-send {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .btn-cancel {
+      background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+    }
+
+    .btn-copy {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      padding: 8px 16px;
+      width: auto;
+      font-size: 14px;
+    }
+
+    /* Meeting Link */
+    .meeting-link-box {
+      padding: 16px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #ecfeff 0%, #f0fdfa 100%);
+      border: 2px solid #a5f3fc;
+    }
+
+    body.dark .meeting-link-box {
+      background: linear-gradient(135deg, #0c4a6e 0%, #064e3b 100%);
+      border-color: #0e7490;
+    }
+
+    .meeting-link {
+      word-break: break-all;
+      font-size: 13px;
+      color: #475569;
+      padding: 8px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    body.dark .meeting-link {
+      background: #1e293b;
+      border-color: #334155;
+      color: #cbd5e1;
     }
   </style>
 </head>
 
 <body>
   <div class="container">
+    <!-- Theme Toggle Button - Small and Round in Top Right -->
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+      <!-- Sun icon -->
+      <svg class="sun-icon" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </svg>
 
+      <!-- Moon icon -->
+      <svg class="moon-icon" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    </button>
+    
     <h3>InboxAI</h3>
+    
 
     <!-- ===================== LOGIN VIEW ===================== -->
     <div id="loginView">
       <div class="login-card">
         <h4>Welcome to InboxAI</h4>
         <p>Sign in with Google to manage emails, meetings, and drafts.</p>
-        <button class="google-login-btn" id="googleLoginBtn">
+        <button class="google-login-btn auth-btn login-btn" id="loginWithGoogle">
           Continue with Google
         </button>
       </div>
@@ -212,169 +628,174 @@
 
     <!-- ===================== MAIN APP VIEW ===================== -->
     <div id="appView">
-
-      <div class="step-indicator">
-        <div class="step active"></div>
-        <div class="step"></div>
-        <div class="step"></div>
+      <!-- Auth Bar -->
+      <div class="auth-bar">
+        <div class="user-status" id="userStatus"></div>
+        <div class="auth-buttons">
+          <button class="auth-btn login-btn" id="loginWithGoogle2" style="display: none;">Login</button>
+          <button class="auth-btn logout-btn" id="logout" style="display: none;">Logout</button>
+        </div>
       </div>
 
+      <!-- Mode Selector -->
+      <div class="mode-selector">
+        <div class="step active" data-mode="chat">Ask</div>
+        <div class="step" data-mode="draft">Draft Mail</div>
+        <div class="step" data-mode="meeting">Schedule Meeting</div>
+      </div>
+
+      <!-- Chat View -->
       <div id="chatView">
         <div class="chat-messages" id="chatMessages"></div>
         <textarea id="input" placeholder="Say something..."></textarea>
         <button id="send">Send Command</button>
       </div>
-    <!-- Draft View -->
-    <div id="draftView" style="display:none;">
-      <!-- Step 1: Input Form -->
-      <div id="inputForm" class="form-step">
-        <div class="input-section">
-          <label class="input-label">Recipient Email</label>
-          <input type="email" id="recipientEmail" class="input-field" placeholder="recipient@example.com">
-        </div>
 
-        <div class="input-section">
-          <label class="input-label">Email Intent</label>
-          <textarea id="emailIntent" class="input-field" placeholder="What do you want to say? (e.g., 'Schedule a meeting for next week')"></textarea>
-        </div>
-
-        <button id="generateDrafts">Generate Draft Suggestions</button>
-      </div>
-
-      <!-- Step 2: Draft Selection -->
-      <div id="draftSelection" class="form-step" style="display: none;">
-        <h4 style="text-align: center; margin-bottom: 16px;">Select a Draft</h4>
-        <div class="draft-cards" id="draftCards"></div>
-        <button id="confirmSelection">Continue with Selected Draft</button>
-      </div>
-
-      <!-- Step 3: Confirmation -->
-      <div id="confirmationStep" class="form-step" style="display: none;">
-        <div class="confirmation-box">
-          <h4>Ready to Send</h4>
-          <div class="confirmation-detail"><strong>To:</strong> <span id="confirmRecipient"></span></div>
-          <div class="confirmation-detail"><strong>Subject:</strong> <span id="confirmSubject"></span></div>
-          <div class="confirmation-detail" style="margin-top: 12px;">
-            <strong>Message:</strong><br>
-            <div id="confirmBody" style="margin-top: 8px; white-space: pre-wrap;"></div>
+      <!-- Draft View -->
+      <div id="draftView" style="display:none;">
+        <!-- Step 1: Input Form -->
+        <div id="inputForm" class="form-step">
+          <div class="input-section">
+            <label class="input-label">Recipient Email</label>
+            <input type="email" id="recipientEmail" class="input-field" placeholder="recipient@example.com">
           </div>
-          <div class="confirmation-buttons">
-            <button class="btn-send" id="sendEmail">Send Email</button>
-            <button class="btn-cancel" id="cancelSend">Cancel</button>
+
+          <div class="input-section">
+            <label class="input-label">Email Intent</label>
+            <textarea id="emailIntent" class="input-field" placeholder="What do you want to say? (e.g., 'Schedule a meeting for next week')"></textarea>
+          </div>
+
+          <button id="generateDrafts">Generate Draft Suggestions</button>
+        </div>
+
+        <!-- Step 2: Draft Selection -->
+        <div id="draftSelection" class="form-step" style="display: none;">
+          <h4 style="text-align: center; margin-bottom: 16px;">Select a Draft</h4>
+          <div class="draft-cards" id="draftCards"></div>
+          <button id="confirmSelection">Continue with Selected Draft</button>
+        </div>
+
+        <!-- Step 3: Confirmation -->
+        <div id="confirmationStep" class="form-step" style="display: none;">
+          <div class="confirmation-box">
+            <h4>Ready to Send</h4>
+            <div class="confirmation-detail"><strong>To:</strong> <span id="confirmRecipient"></span></div>
+            <div class="confirmation-detail"><strong>Subject:</strong> <span id="confirmSubject"></span></div>
+            <div class="confirmation-detail" style="margin-top: 12px;">
+              <strong>Message:</strong><br>
+              <div id="confirmBody" style="margin-top: 8px; white-space: pre-wrap;"></div>
+            </div>
+            <div class="confirmation-buttons">
+              <button class="btn-send" id="sendEmail">Send Email</button>
+              <button class="btn-cancel" id="cancelSend">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meeting Management View -->
+      <div id="meetingView" style="display:none;">
+        <div class="meeting-layout">
+          <!-- Form Fields ONLY -->
+          <div class="meeting-form-section">
+            <h4 style="text-align: center; margin-bottom: 16px;">Meeting Details</h4>
+
+            <div class="input-section">
+              <label class="input-label">Recipient Email(s)</label>
+              <input
+                type="text"
+                id="meetingRecipients"
+                class="input-field"
+                placeholder="johndoe@gmail.com"
+              >
+            </div>
+
+            <div class="input-section">
+              <label class="input-label">Date</label>
+              <input type="date" id="meetingDate" class="input-field">
+            </div>
+
+            <div class="input-section">
+              <label class="input-label">Time</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="time" id="meetingTime" class="input-field" style="flex: 1;">
+                <select id="meetingTimeType" class="input-field" style="flex: 0 0 auto; width: 120px;">
+                  <option value="custom">Custom</option>
+                  <option value="instant">Now</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="input-section">
+              <label class="input-label">Duration (minutes)</label>
+              <input
+                type="number"
+                id="meetingDuration"
+                class="input-field"
+                value="30"
+                min="15"
+                step="15"
+              >
+            </div>
+
+            <div class="input-section">
+              <label class="input-label">Meeting Title</label>
+              <input
+                type="text"
+                id="meetingTitle"
+                class="input-field"
+                placeholder="Quick sync"
+              >
+            </div>
+
+            <div class="input-section">
+              <label class="input-label">Agenda (optional)</label>
+              <textarea
+                id="meetingAgenda"
+                class="input-field"
+                placeholder="What we'll discuss..."
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generated Meeting Link Display -->
+        <div id="meetingLinkDisplay" style="display: none; margin-top: 20px;">
+          <div class="meeting-link-box">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <h4 style="color: #10b981; margin: 0;">Meeting Link Generated</h4>
+              <button id="copyMeetingLink" class="btn-copy">Copy Link</button>
+            </div>
+            <div id="generatedMeetingLink" class="meeting-link"></div>
+          </div>
+        </div>
+
+        <button id="generateMeeting">Generate Meeting & Send Invites</button>
+
+        <!-- Meeting Confirmation -->
+        <div id="meetingConfirmation" style="display: none; margin-top: 20px;">
+          <div class="confirmation-box">
+            <h4>Meeting Ready to Send</h4>
+            <div class="confirmation-detail">
+              <strong>To:</strong> <span id="confirmMeetingRecipients"></span>
+            </div>
+            <div class="confirmation-detail">
+              <strong>When:</strong> <span id="confirmMeetingTime"></span>
+            </div>
+            <div class="confirmation-detail">
+              <strong>Duration:</strong> <span id="confirmMeetingDuration"></span>
+            </div>
+            <div class="confirmation-detail">
+              <strong>Link:</strong> <span id="confirmMeetingLink"></span>
+            </div>
+            <div class="confirmation-buttons">
+              <button class="btn-send" id="sendMeetingInvite">Send Invites</button>
+              <button class="btn-cancel" id="cancelMeeting">Cancel</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Meeting Management View -->
-<div id="meetingView" style="display:none;">
-  <div class="meeting-layout">
-
-    <!-- Form Fields ONLY -->
-    <div class="meeting-form-section">
-      <h4 style="text-align: center; margin-bottom: 16px;">Meeting Details</h4>
-
-      <div class="input-section">
-        <label class="input-label">Recipient Email(s)</label>
-        <input
-          type="text"
-          id="meetingRecipients"
-          class="input-field"
-          placeholder="johndoe@gmail.com"
-        >
-      </div>
-
-      <div class="input-section">
-        <label class="input-label">Date</label>
-        <input type="date" id="meetingDate" class="input-field">
-      </div>
-
-      <div class="input-section">
-        <label class="input-label">Time</label>
-        <div style="display: flex; gap: 8px;">
-          <input type="time" id="meetingTime" class="input-field" style="flex: 1;">
-          <select id="meetingTimeType" class="input-field" style="flex: 0 0 auto; width: 120px;">
-            <option value="custom">Custom</option>
-            <option value="instant">Now</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="input-section">
-        <label class="input-label">Duration (minutes)</label>
-        <input
-          type="number"
-          id="meetingDuration"
-          class="input-field"
-          value="30"
-          min="15"
-          step="15"
-        >
-      </div>
-
-      <div class="input-section">
-        <label class="input-label">Meeting Title</label>
-        <input
-          type="text"
-          id="meetingTitle"
-          class="input-field"
-          placeholder="Quick sync"
-        >
-      </div>
-
-      <div class="input-section">
-        <label class="input-label">Agenda (optional)</label>
-        <textarea
-          id="meetingAgenda"
-          class="input-field"
-          placeholder="What we'll discuss..."
-        ></textarea>
-      </div>
-    </div>
-  </div>
-
-  <!-- Generated Meeting Link Display -->
-  <div id="meetingLinkDisplay" style="display: none; margin-top: 20px;">
-    <div class="meeting-link-box">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <h4 style="color: #10b981; margin: 0;">Meeting Link Generated</h4>
-        <button id="copyMeetingLink" class="btn-copy">Copy Link</button>
-      </div>
-      <div id="generatedMeetingLink" class="meeting-link"></div>
-    </div>
-  </div>
-
-  <button id="generateMeeting">Generate Meeting & Send Invites</button>
-
-  <!-- Meeting Confirmation -->
-  <div id="meetingConfirmation" style="display: none; margin-top: 20px;">
-    <div class="confirmation-box">
-      <h4>Meeting Ready to Send</h4>
-      <div class="confirmation-detail">
-        <strong>To:</strong> <span id="confirmMeetingRecipients"></span>
-      </div>
-      <div class="confirmation-detail">
-        <strong>When:</strong> <span id="confirmMeetingTime"></span>
-      </div>
-      <div class="confirmation-detail">
-        <strong>Duration:</strong> <span id="confirmMeetingDuration"></span>
-      </div>
-      <div class="confirmation-detail">
-        <strong>Link:</strong> <span id="confirmMeetingLink"></span>
-      </div>
-      <div class="confirmation-buttons">
-        <button class="btn-send" id="sendMeetingInvite">Send Invites</button>
-        <button class="btn-cancel" id="cancelMeeting">Cancel</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-    <p id="output"></p>
-  </div>
-
-    </div>
-
   </div>
 
   <script src="popup.js"></script>
