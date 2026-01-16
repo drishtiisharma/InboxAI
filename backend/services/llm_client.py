@@ -118,7 +118,12 @@ def call_llm(prompt: str) -> str:
     return response.choices[0].message.content.strip()
 
 # ===================== INTELLIGENT HANDLER =====================
-def intelligent_command_handler(user_message: str, function_map: dict, history: list = None) -> dict:
+def intelligent_command_handler(
+    user_message: str,
+    function_map: dict,
+    history: list = None,
+    attachment_summary: str = ""
+) -> dict:
     """
     Intelligent command handler using function calling
 
@@ -132,7 +137,7 @@ def intelligent_command_handler(user_message: str, function_map: dict, history: 
     messages = [
         {
             "role": "system",
-            "content": """
+            "content": f"""
             
 You are InboxAI, a smart AI assistant.
 
@@ -178,7 +183,10 @@ Examples:
   → call create_meeting
 - "set up a call with the team on friday"
   → call create_meeting
-
+If attachment content is provided, you MUST use it when answering.
+If the user asks about an attached document, base your answer ONLY on the attachment content.
+ATTACHMENT CONTENT (if any):
+{attachment_summary}
 
 """
         }

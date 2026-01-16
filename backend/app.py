@@ -6,7 +6,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
-
+from services.gmail_client import get_unread_emails
+from ai_logic.readers.attachment_processor import (
+    process_all_attachments,
+    create_attachment_summary
+)
 from db import init_db, save_conversation, get_conversation_history
 init_db()
 
@@ -124,14 +128,29 @@ async def handle_command(payload: CommandPayload, request: Request):
         }
     }
 }
+        attachment_summary = ""
+        try:
+            creds = get_credentials_for_user(user_email)
+            emails = get_unread_emails(creds, max_results=1)
 
-        result = intelligent_command_handler(
-            user_message=command,
-            function_map=function_map,
-            history=get_conversation_history(user_email)
-        )
+            if emails and isinstance(emails[0].get("attachments"), list):
+                processed = process_all_attachments(emails[0]["attachments"])
+                attachment_summary = create_attachment_summary(processed)
+        except Exception:
+            attachment_summary = ""
 
         save_conversation(user_email, "user", command)
+
+        result = intelligent_command_handler(
+    user_message=command,
+    function_map=function_map,  # tools available
+    history=get_conversation_history(user_email),
+    attachment_summary=attachment_summary,
+    allow_general_knowledge=True
+)
+
+
+
         save_conversation(user_email, "assistant", result.get("reply", ""))
 
         return result
