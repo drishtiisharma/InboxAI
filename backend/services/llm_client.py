@@ -239,11 +239,7 @@ ATTACHMENT CONTENT (if any):
         else:
             function_result = function_map[function_name]()
     except Exception as e:
-        return {
-            "reply": "Something went wrong while fetching your emails.",
-            "data": {"error": str(e)}
-        }
-
+        raise e
     # -------- FORCE STANDARD RESPONSE FORMAT --------
     if isinstance(function_result, dict):
         return {

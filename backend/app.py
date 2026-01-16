@@ -64,7 +64,7 @@ def get_unread_emails_summary(user_email: str):
         return {"reply": "You have no unread emails 🎉"}
 
     service = get_gmail_service(creds)
-    summaries = [summarize_email(service, e["id"]) for e in emails[:3]]
+    summaries = [e["summary"] for e in emails[:3]]
     return {"reply": "\n\n".join(summaries)}
 
 
