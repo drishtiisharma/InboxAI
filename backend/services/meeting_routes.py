@@ -1,29 +1,28 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional
-from services.gmail_client import get_google_credentials
+
+from services.gmail_client import get_credentials_for_user 
 from services.calendar_service import create_google_meeting
 
-# ============================ ROUTER ============================
 meeting_router = APIRouter(prefix="/meeting", tags=["Meeting"])
-
-# ============================ MODELS ============================
 
 class CreateMeetingRequest(BaseModel):
     title: str
-    date: str              # YYYY-MM-DD
-    time: str              # HH:MM
-    duration: int          # minutes
+    date: str
+    time: str
+    duration: int
     recipients: List[str]
     agenda: Optional[str] = ""
 
-
-# ============================ ROUTES ============================
-
 @meeting_router.post("/create")
-def create_meeting(req: CreateMeetingRequest):
+def create_meeting(req: CreateMeetingRequest, request: Request):
     try:
-        creds = get_google_credentials()
+        user_email = request.session.get("user")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        creds = get_credentials_for_user(user_email)  
 
         meeting_data = {
             "title": req.title,
@@ -41,10 +40,8 @@ def create_meeting(req: CreateMeetingRequest):
         }
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create meeting: {str(e)}"
-        )
-# Add to app.py or meeting_routes.py
-from google.oauth2.credentials import Credentials
+        raise HTTPException(status_code=500, detail=f"Failed to create meeting: {str(e)}")
 
+@meeting_router.get("/ping")
+def ping():
+    return {"ok": True}

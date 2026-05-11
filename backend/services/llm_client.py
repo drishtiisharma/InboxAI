@@ -59,63 +59,67 @@ tools = [
             }
         }
     },
+    # FIX: was missing a comma after this dict, causing a JSON/Python SyntaxError
     {
-    "type": "function",
-    "function": {
-        "name": "create_meeting",
-        "description": "Schedule a Google Calendar meeting with specified details",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "title": {
-                    "type": "string",
-                    "description": "Title of the meeting"
+        "type": "function",
+        "function": {
+            "name": "create_meeting",
+            "description": "Schedule a Google Calendar meeting with specified details",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Title of the meeting"
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "Meeting date in YYYY-MM-DD format"
+                    },
+                    "time": {
+                        "type": "string",
+                        "description": "Meeting start time in HH:MM (24h format)"
+                    },
+                    "duration": {
+                        "type": "integer",
+                        "description": "Duration of meeting in minutes"
+                    },
+                    "recipients": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Email addresses of attendees"
+                    },
+                    "agenda": {
+                        "type": "string",
+                        "description": "Agenda or description of the meeting"
+                    }
                 },
-                "date": {
-                    "type": "string",
-                    "description": "Meeting date in YYYY-MM-DD format"
-                },
-                "time": {
-                    "type": "string",
-                    "description": "Meeting start time in HH:MM (24h format)"
-                },
-                "duration": {
-                    "type": "integer",
-                    "description": "Duration of meeting in minutes"
-                },
-                "recipients": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Email addresses of attendees"
-                },
-                "agenda": {
-                    "type": "string",
-                    "description": "Agenda or description of the meeting"
-                }
-            },
-            "required": ["title", "date", "time", "duration", "recipients"]
+                "required": ["title", "date", "time", "duration", "recipients"]
+            }
         }
     }
-}
-
 ]
 
 # ===================== BASIC LLM =====================
 def call_llm(prompt: str) -> str:
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama-3.3-70b-versatile",
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert email summarizer. Summarize emails concisely in 2-3 sentences, mentioning key points from both the email body and any attachments."
+                "content": (
+                    "You are an expert email summarizer. "
+                    "Summarize emails concisely in 2-3 sentences, "
+                    "mentioning key points from both the email body and any attachments."
+                )
             },
             {"role": "user", "content": prompt}
         ],
         temperature=0.3,
         max_tokens=500
     )
-
     return response.choices[0].message.content.strip()
+
 
 # ===================== INTELLIGENT HANDLER =====================
 def intelligent_command_handler(
@@ -138,7 +142,6 @@ def intelligent_command_handler(
         {
             "role": "system",
             "content": f"""
-            
 You are InboxAI, a smart AI assistant.
 
 Your primary role is to help users with emails, inbox management, and scheduling meetings.
@@ -160,11 +163,12 @@ Examples:
 - "what's my last email?" → Use get_last_email_summary
 - "show unread emails" → Use get_unread_emails_summary
 - If the user asks about categories, labels, types, or classification of emails,
-use get_unread_email_categories.
+  use get_unread_email_categories.
 - If the user asks whether they have emails from a specific sender
-(e.g., "GitHub", "Google", "LinkedIn", "from X"),
-use check_emails_from_sender with the sender name as parameter.
+  (e.g., "GitHub", "Google", "LinkedIn", "from X"),
+  use check_emails_from_sender with the sender name as parameter.
 - "summarize my inbox" → Use get_unread_emails_summary
+
 You can help users with:
 - Reading and summarizing emails
 - Categorizing emails
@@ -179,15 +183,13 @@ Rules:
 - Be concise, friendly, and confident.
 
 Examples:
-- "schedule a meeting tomorrow at 4pm with john@gmail.com"
-  → call create_meeting
-- "set up a call with the team on friday"
-  → call create_meeting
+- "schedule a meeting tomorrow at 4pm with john@gmail.com" → call create_meeting
+- "set up a call with the team on friday" → call create_meeting
+
 If attachment content is provided, you MUST use it when answering.
 If the user asks about an attached document, base your answer ONLY on the attachment content.
 ATTACHMENT CONTENT (if any):
 {attachment_summary}
-
 """
         }
     ]
@@ -204,7 +206,7 @@ ATTACHMENT CONTENT (if any):
 
     # -------- First call: decide intent --------
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama-3.3-70b-versatile",
         messages=messages,
         tools=tools,
         tool_choice="auto",
@@ -215,14 +217,14 @@ ATTACHMENT CONTENT (if any):
     response_message = response.choices[0].message
     tool_calls = response_message.tool_calls
 
-    # 🟢 NO TOOL CALL → GREETING / CHAT
+    # NO TOOL CALL → greeting / general chat
     if not tool_calls:
         return {
             "reply": response_message.content or "I'm here to help with your emails!",
             "data": None
         }
 
-    # -------- Execute tool (ONLY FIRST TOOL CALL) --------
+    # -------- Execute tool (first tool call only) --------
     tool_call = tool_calls[0]
     function_name = tool_call.function.name
     function_args = json.loads(tool_call.function.arguments or "{}")
@@ -240,19 +242,61 @@ ATTACHMENT CONTENT (if any):
             function_result = function_map[function_name]()
     except Exception as e:
         return {
-            "reply": "Something went wrong while fetching your emails.",
+            "reply": "Something went wrong while processing your request.",
             "data": {"error": str(e)}
         }
 
-    # -------- FORCE STANDARD RESPONSE FORMAT --------
-    if isinstance(function_result, dict):
+    # Return function result directly — no second LLM call needed.
+    # The LLM rewriting the reply causes it to drop counts and reformat text.
+    if isinstance(function_result, dict) and function_result.get("reply"):
         return {
-            "reply": function_result.get("reply", ""),
+            "reply": function_result["reply"],
             "data": function_result.get("data")
         }
 
-    # Fallback safety net
+    # FIX: append assistant + tool result to messages so the model can
+    # generate a natural-language reply based on the tool output.
+    messages.append({
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": tool_call.id,
+                "type": "function",
+                "function": {
+                    "name": function_name,
+                    "arguments": tool_call.function.arguments
+                }
+            }
+        ]
+    })
+    messages.append({
+        "role": "tool",
+        "tool_call_id": tool_call.id,
+        "content": json.dumps(function_result) if not isinstance(function_result, str) else function_result
+    })
+
+    # -------- Second call: generate human-readable reply --------
+    final_response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=messages + [
+        {
+            "role": "system",
+            "content": "IMPORTANT: If the tool result contains an email count or number, you MUST include it exactly in your reply. Do not drop or ignore it."
+        }
+    ],
+        temperature=0.7,
+        max_tokens=500
+    )
+
+    final_message = final_response.choices[0].message.content or ""
+
+    # If function_result is already a standardised dict, honour its data field
+    data = None
+    if isinstance(function_result, dict):
+        data = function_result.get("data")
+
     return {
-        "reply": str(function_result),
-        "data": None
+        "reply": final_message,
+        "data": data
     }

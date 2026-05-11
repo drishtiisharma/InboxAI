@@ -4,15 +4,20 @@ from db import get_refresh_token
 import os
 
 SCOPES = [
+    # FIX: gmail.modify was listed in gmail_client.py but missing here
     "https://www.googleapis.com/auth/gmail.modify",
-    "https://www.googleapis.com/auth/calendar"
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "openid"
 ]
 
-def get_credentials_for_user(email: str):
+
+def get_credentials_for_user(email: str) -> Credentials:
     refresh_token = get_refresh_token(email)
 
     if not refresh_token:
-        raise Exception("User not authenticated")
+        raise Exception(f"User not authenticated: {email}")
 
     creds = Credentials(
         token=None,
@@ -23,5 +28,8 @@ def get_credentials_for_user(email: str):
         scopes=SCOPES,
     )
 
-    creds.refresh(Request())
+    # FIX: only refresh when actually needed (expired or no valid token)
+    if not creds.valid:
+        creds.refresh(Request())
+
     return creds

@@ -1,3 +1,5 @@
+from typing import Optional  # FIX: str | None requires Python 3.10+; use Optional for 3.9 compat
+
 SENDER_CATEGORY_MAP = {
     "linkedin.com": "Promotions",
     "github.com": "Work",
@@ -6,7 +8,8 @@ SENDER_CATEGORY_MAP = {
     "no-reply": "Updates",
 }
 
-def categorize_by_sender(sender: str) -> str | None:
+
+def categorize_by_sender(sender: str) -> Optional[str]:
     sender = sender.lower()
 
     for key, category in SENDER_CATEGORY_MAP.items():

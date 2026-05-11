@@ -1,8 +1,10 @@
 # app.py — InboxAI (PURE LLM-FIRST)
-
 import os
 import traceback
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI, HTTPException, Request
+from services.meeting_routes import meeting_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -13,6 +15,7 @@ from ai_logic.readers.attachment_processor import (
 )
 from db import init_db, save_conversation, get_conversation_history
 init_db()
+
 
 # ===================== IMPORTS =====================
 from models import (
@@ -51,8 +54,8 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("SESSION_SECRET", "change-me"),
     session_cookie="inboxai_session",
-    same_site="none",
-    https_only=True
+    same_site="lax",
+    https_only=False
 )
 
 # ===================== EMAIL HELPERS =====================
@@ -65,7 +68,13 @@ def get_unread_emails_summary(user_email: str):
 
     service = get_gmail_service(creds)
     summaries = [summarize_email(service, e["id"]) for e in emails[:3]]
-    return {"reply": "\n\n".join(summaries)}
+
+
+    count = len(emails)
+    summary_text = "\n\n".join(summaries)
+    return {
+        "reply": f"You have **{count} unread email{'s' if count != 1 else ''}**. Here's a summary of the latest ones:\n\n{summary_text}"
+    }
 
 
 def get_last_email_summary(user_email: str):
@@ -76,7 +85,8 @@ def get_last_email_summary(user_email: str):
         return {"reply": "You have no unread emails."}
 
     service = get_gmail_service(creds)
-    return {"reply": summarize_email(service, emails[0]["id"])}
+    summary = summarize_email(service, emails[0]["id"])
+    return {"reply": f"Here's your most recent unread email:\n\n{summary}"}
 
 
 def check_emails_from_sender(user_email: str, sender_query: str):
@@ -190,6 +200,7 @@ async def send_email_route(req: SendEmailRequest, request: Request):
 
 # ===================== AUTH =====================
 app.include_router(auth_router)
+app.include_router(meeting_router) 
 
 # ===================== LOGOUT =====================
 @app.post("/auth/logout")
